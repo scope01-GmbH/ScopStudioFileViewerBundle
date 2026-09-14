@@ -12,6 +12,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import type { Key } from 'react'
 import { Alert, ContextMenuWrapper, Flex, IconButton, Menu, Spin, Text, TreeElement } from '@pimcore/studio-ui-bundle/components'
 import type { TreeDataItem } from '@pimcore/studio-ui-bundle/components'
+import { useTranslation } from '@pimcore/studio-ui-bundle/app'
 import { useLazyScopFileViewerDirectoryQuery } from '../api/file-viewer-api'
 import type { FileEntry } from '../types'
 import { toErrorMessage } from '../utils/format'
@@ -56,6 +57,7 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const { t } = useTranslation()
   const [loadDirectory] = useLazyScopFileViewerDirectoryQuery()
 
   /**
@@ -72,11 +74,11 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
       setExpandedKeys([])
       setError(null)
     } catch (loadError) {
-      setError(toErrorMessage(loadError, 'The project root could not be listed.'))
+      setError(toErrorMessage(loadError, t('scop-file-viewer.tree.load-error')))
     } finally {
       setLoaded(true)
     }
-  }, [loadDirectory])
+  }, [loadDirectory, t])
 
   useEffect(() => {
     void loadRoot()
@@ -112,9 +114,9 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
       setTreeData((current) => withChildren(current, key, listing.entries.map(toTreeNode)))
       setExpandedKeys((current) => (current.includes(key) ? current : [...current, key]))
     } catch (reloadError) {
-      setError(toErrorMessage(reloadError, `"${key}" could not be reloaded.`))
+      setError(toErrorMessage(reloadError, t('scop-file-viewer.tree.reload-error', { path: key })))
     }
-  }, [loadDirectory])
+  }, [loadDirectory, t])
 
   /**
    * Directories get a right-click menu; files keep the default title so a right-click there
@@ -133,7 +135,7 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
           <Menu
             items={ [{
               key: 'reload',
-              label: 'Reload folder',
+              label: t('scop-file-viewer.tree.reload-folder'),
               onClick: () => { void reloadFolder(entry.path) }
             }] }
           />
@@ -142,17 +144,17 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
         { initialComponent }
       </ContextMenuWrapper>
     )
-  }, [reloadFolder])
+  }, [reloadFolder, t])
 
   return (
     <Flex vertical gap="mini" style={ { height: '100%', overflow: 'hidden', padding: 8 } }>
       <Flex align="center" gap="mini" justify="space-between">
-        <Text type="secondary">Project files</Text>
+        <Text type="secondary">{ t('scop-file-viewer.tree.title') }</Text>
         <IconButton
           disabled={ !loaded }
           icon={ { value: 'refresh' } }
           onClick={ () => { void loadRoot() } }
-          tooltip={ { title: 'Reload the file tree' } }
+          tooltip={ { title: t('scop-file-viewer.tree.reload') } }
           variant="minimal"
         />
       </Flex>

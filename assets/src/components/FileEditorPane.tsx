@@ -10,6 +10,7 @@
 
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Button, Flex, Spin, Text, useMessage } from '@pimcore/studio-ui-bundle/components'
+import { useTranslation } from '@pimcore/studio-ui-bundle/app'
 import {
   getDownloadUrl,
   useScopFileViewerFileQuery,
@@ -34,6 +35,7 @@ export const FileEditorPane = ({ path, onDirtyChange }: FileEditorPaneProps): Re
   const [draft, setDraft] = useState<string | null>(null)
 
   const message = useMessage()
+  const { t } = useTranslation()
   const { data, error, isFetching } = useScopFileViewerFileQuery({ path, tail: showTail })
   const [writeFile, { isLoading: isSaving }] = useScopFileViewerWriteFileMutation()
 
@@ -55,15 +57,15 @@ export const FileEditorPane = ({ path, onDirtyChange }: FileEditorPaneProps): Re
 
     try {
       await writeFile({ path, content: draft }).unwrap()
-      message.success(`Saved ${path}`)
+      message.success(t('scop-file-viewer.editor.save-success', { path }))
     } catch (saveError) {
-      message.error(toErrorMessage(saveError, `${path} could not be saved.`))
+      message.error(toErrorMessage(saveError, t('scop-file-viewer.editor.save-error', { path })))
     }
-  }, [draft, path, writeFile, message])
+  }, [draft, path, writeFile, message, t])
 
   const downloadButton = (
     <Button href={ getDownloadUrl(path) } target="_blank">
-      Download
+      { t('scop-file-viewer.editor.download') }
     </Button>
   )
 
@@ -74,13 +76,13 @@ export const FileEditorPane = ({ path, onDirtyChange }: FileEditorPaneProps): Re
   if (error !== undefined && error !== null) {
     return (
       <div style={ { padding: 16 } }>
-        <Alert message={ toErrorMessage(error, `${path} could not be opened.`) } showIcon type="error" />
+        <Alert message={ toErrorMessage(error, t('scop-file-viewer.editor.open-error', { path })) } showIcon type="error" />
       </div>
     )
   }
 
   if (data === undefined) {
-    return <div style={ { padding: 16 } }><Text type="secondary">Nothing to show.</Text></div>
+    return <div style={ { padding: 16 } }><Text type="secondary">{ t('scop-file-viewer.editor.nothing-to-show') }</Text></div>
   }
 
   if (data.status === 'binary') {
@@ -88,8 +90,8 @@ export const FileEditorPane = ({ path, onDirtyChange }: FileEditorPaneProps): Re
       <div style={ { padding: 16 } }>
         <Alert
           action={ downloadButton }
-          description={ `${path} (${formatBytes(data.size)}) looks like a binary file, so it is not opened in the editor.` }
-          message="Binary file"
+          description={ t('scop-file-viewer.editor.binary.description', { path, size: formatBytes(data.size) }) }
+          message={ t('scop-file-viewer.editor.binary.title') }
           showIcon
           type="info"
         />
@@ -107,16 +109,16 @@ export const FileEditorPane = ({ path, onDirtyChange }: FileEditorPaneProps): Re
             <Flex gap="mini">
               { downloadButton }
               <Button onClick={ () => { setShowTail(true) } } type="primary">
-                Show last { formatBytes(data.tailBytes) }
+                { t('scop-file-viewer.editor.too-large.show-tail', { size: formatBytes(data.tailBytes) }) }
               </Button>
             </Flex>
           }
-          description={
-            `${path} is ${formatBytes(data.size)}, above the ${formatBytes(data.maxEditableSize)} limit for the editor. ` +
-            'It was not loaded. You can download it, or look at the end of the file read-only, ' +
-            'which is usually what you want for a log.'
-          }
-          message="File too large to open"
+          description={ t('scop-file-viewer.editor.too-large.description', {
+            path,
+            size: formatBytes(data.size),
+            limit: formatBytes(data.maxEditableSize)
+          }) }
+          message={ t('scop-file-viewer.editor.too-large.title') }
           showIcon
           type="warning"
         />
@@ -133,7 +135,7 @@ export const FileEditorPane = ({ path, onDirtyChange }: FileEditorPaneProps): Re
         <Text ellipsis title={ path } type="secondary">
           { path } · { formatBytes(data.size) }
           { languageLabel !== null ? ` · ${languageLabel}` : '' }
-          { isDirty ? ' · unsaved changes' : '' }
+          { isDirty ? ` · ${t('scop-file-viewer.editor.unsaved-changes')}` : '' }
         </Text>
 
         <Flex align="center" gap="mini">
@@ -145,7 +147,7 @@ export const FileEditorPane = ({ path, onDirtyChange }: FileEditorPaneProps): Re
               onClick={ () => { void handleSave() } }
               type="primary"
             >
-              Save
+              { t('scop-file-viewer.editor.save') }
             </Button>
           ) }
         </Flex>
@@ -154,7 +156,7 @@ export const FileEditorPane = ({ path, onDirtyChange }: FileEditorPaneProps): Re
       { isTail && (
         <div style={ { padding: '0 12px 8px' } }>
           <Alert
-            message={ `Showing only the last ${formatBytes(data.tailBytes)} of this file. This view is read-only.` }
+            message={ t('scop-file-viewer.editor.tail-notice', { size: formatBytes(data.tailBytes) }) }
             showIcon
             type="warning"
           />
@@ -163,7 +165,7 @@ export const FileEditorPane = ({ path, onDirtyChange }: FileEditorPaneProps): Re
 
       { !isTail && !data.editable && (
         <div style={ { padding: '0 12px 8px' } }>
-          <Alert message="This file is read-only." showIcon type="info" />
+          <Alert message={ t('scop-file-viewer.editor.read-only') } showIcon type="info" />
         </div>
       ) }
 

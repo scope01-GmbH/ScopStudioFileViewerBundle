@@ -10,7 +10,7 @@
 
 import React, { useCallback, useState } from 'react'
 import { Flex, SplitLayout, Tabs, Text } from '@pimcore/studio-ui-bundle/components'
-import { createStyles } from '@pimcore/studio-ui-bundle/app'
+import { createStyles, useTranslation } from '@pimcore/studio-ui-bundle/app'
 import { FileTreePanel } from './FileTreePanel'
 import { FileEditorPane } from './FileEditorPane'
 import type { FileEntry } from '../types'
@@ -49,6 +49,7 @@ export const FileViewerWidget = (): React.JSX.Element => {
   const [activePath, setActivePath] = useState<string | null>(null)
 
   const { styles } = useStyles()
+  const { t } = useTranslation()
 
   const hasOpenFile = openFiles.length > 0
 
@@ -118,7 +119,7 @@ export const FileViewerWidget = (): React.JSX.Element => {
         children: !hasOpenFile
           ? (
             <Flex align="center" justify="center" style={ { height: '100%' } }>
-              <Text type="secondary">Select a file in the tree to open it.</Text>
+              <Text type="secondary">{ t('scop-file-viewer.editor.empty-state') }</Text>
             </Flex>
             )
           : (

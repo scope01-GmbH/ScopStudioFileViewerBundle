@@ -16,6 +16,8 @@ import { FileViewerWidget } from '../components/FileViewerWidget'
 
 const WIDGET_ID = 'scop-file-viewer'
 
+const TITLE_KEY = 'scop-file-viewer.title'
+
 export const ScopFileViewerModule: AbstractModule = {
   onInit: (): void => {
     const widgetRegistry = container.get<WidgetRegistry>(serviceIds.widgetManager)
@@ -28,12 +30,16 @@ export const ScopFileViewerModule: AbstractModule = {
     const mainNavRegistry = container.get<MainNavRegistry>(serviceIds.mainNavRegistry)
 
     mainNavRegistry.registerMainNavItem({
+      // `path` is the structural position in the menu; `label` and `translationKey` are what
+      // the user actually sees, so both are translation keys rather than literals.
       path: 'System/File Viewer',
+      label: TITLE_KEY,
       widgetConfig: {
         name: 'File Viewer',
         id: WIDGET_ID,
         component: WIDGET_ID,
         config: {
+          translationKey: TITLE_KEY,
           icon: {
             type: 'name',
             value: 'file'

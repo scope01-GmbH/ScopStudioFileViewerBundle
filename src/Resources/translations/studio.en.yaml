@@ -1,0 +1,34 @@
+# Studio UI translations for the Scop Studio File Viewer bundle.
+#
+# Flat dot notation only - nested YAML is not resolved by the Studio translator.
+# English is the base language and must contain every key; other locales fall back to it.
+
+scop-file-viewer.title: File Viewer
+
+# Tree panel
+scop-file-viewer.tree.title: Project files
+scop-file-viewer.tree.reload: Reload the file tree
+scop-file-viewer.tree.reload-folder: Reload folder
+scop-file-viewer.tree.load-error: The project root could not be listed.
+scop-file-viewer.tree.reload-error: '"{{path}}" could not be reloaded.'
+
+# Editor
+scop-file-viewer.editor.empty-state: Select a file in the tree to open it.
+scop-file-viewer.editor.nothing-to-show: Nothing to show.
+scop-file-viewer.editor.download: Download
+scop-file-viewer.editor.save: Save
+scop-file-viewer.editor.unsaved-changes: unsaved changes
+scop-file-viewer.editor.read-only: This file is read-only.
+scop-file-viewer.editor.save-success: Saved {{path}}
+scop-file-viewer.editor.save-error: '{{path}} could not be saved.'
+scop-file-viewer.editor.open-error: '{{path}} could not be opened.'
+
+# Binary files
+scop-file-viewer.editor.binary.title: Binary file
+scop-file-viewer.editor.binary.description: '{{path}} ({{size}}) looks like a binary file, so it is not opened in the editor.'
+
+# Oversized files
+scop-file-viewer.editor.too-large.title: File too large to open
+scop-file-viewer.editor.too-large.description: '{{path}} is {{size}}, above the {{limit}} limit for the editor. It was not loaded. You can download it, or look at the end of the file read-only, which is usually what you want for a log.'
+scop-file-viewer.editor.too-large.show-tail: Show last {{size}}
+scop-file-viewer.editor.tail-notice: Showing only the last {{size}} of this file. This view is read-only.

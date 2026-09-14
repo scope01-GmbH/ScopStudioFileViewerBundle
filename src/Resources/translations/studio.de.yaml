@@ -1,0 +1,34 @@
+# Studio UI-Übersetzungen für das Scop Studio File Viewer Bundle.
+#
+# Nur flache Punktnotation - verschachteltes YAML wird vom Studio-Translator nicht aufgelöst.
+# Englisch ist die Basissprache; fehlende Schlüssel fallen auf Englisch zurück.
+
+scop-file-viewer.title: Datei-Viewer
+
+# Dateibaum
+scop-file-viewer.tree.title: Projektdateien
+scop-file-viewer.tree.reload: Dateibaum neu laden
+scop-file-viewer.tree.reload-folder: Ordner neu laden
+scop-file-viewer.tree.load-error: Das Projektverzeichnis konnte nicht gelesen werden.
+scop-file-viewer.tree.reload-error: '"{{path}}" konnte nicht neu geladen werden.'
+
+# Editor
+scop-file-viewer.editor.empty-state: Wählen Sie eine Datei im Baum aus, um sie zu öffnen.
+scop-file-viewer.editor.nothing-to-show: Nichts anzuzeigen.
+scop-file-viewer.editor.download: Herunterladen
+scop-file-viewer.editor.save: Speichern
+scop-file-viewer.editor.unsaved-changes: ungespeicherte Änderungen
+scop-file-viewer.editor.read-only: Diese Datei ist schreibgeschützt.
+scop-file-viewer.editor.save-success: '{{path}} gespeichert'
+scop-file-viewer.editor.save-error: '{{path}} konnte nicht gespeichert werden.'
+scop-file-viewer.editor.open-error: '{{path}} konnte nicht geöffnet werden.'
+
+# Binärdateien
+scop-file-viewer.editor.binary.title: Binärdatei
+scop-file-viewer.editor.binary.description: '{{path}} ({{size}}) ist offenbar eine Binärdatei und wird deshalb nicht im Editor geöffnet.'
+
+# Zu große Dateien
+scop-file-viewer.editor.too-large.title: Datei zu groß zum Öffnen
+scop-file-viewer.editor.too-large.description: '{{path}} ist {{size}} groß und liegt damit über dem Limit von {{limit}} für den Editor. Die Datei wurde nicht geladen. Sie können sie herunterladen oder das Ende der Datei schreibgeschützt ansehen - was bei einem Log meist das Gewünschte ist.'
+scop-file-viewer.editor.too-large.show-tail: Letzte {{size}} anzeigen
+scop-file-viewer.editor.tail-notice: Es werden nur die letzten {{size}} dieser Datei angezeigt. Diese Ansicht ist schreibgeschützt.

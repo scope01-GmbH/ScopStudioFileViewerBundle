@@ -103,6 +103,25 @@ additionally require an admin user.
 Creating, renaming and deleting files is deliberately out of scope — the viewer edits what
 is already there.
 
+## Translations
+
+The UI ships English and German; English is the base and any missing key falls back to it.
+
+```
+src/Resources/translations/studio.en.yaml
+src/Resources/translations/studio.de.yaml
+```
+
+Symfony picks these up automatically from the bundle path, and Studio merges them into its
+own `studio` catalogue — there is nothing to register. All keys are namespaced under
+`scop-file-viewer.` and use flat dot notation, which is the only form the Studio translator
+resolves.
+
+To add a locale, copy `studio.en.yaml` to `studio.<locale>.yaml` and translate the values.
+`TranslationsTest` fails the build if a locale is missing a key, carries one the base
+catalogue does not have, or changes a `{{placeholder}}`, and if the UI uses a key that is not
+translated (or ships one it never uses).
+
 ## Syntax highlighting
 
 The bundle ships its **own CodeMirror** rather than reusing Studio's, which is what makes PHP
