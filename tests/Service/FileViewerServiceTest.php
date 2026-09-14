@@ -15,6 +15,8 @@ declare(strict_types=1);
 
 namespace Scop\StudioFileViewerBundle\Tests\Service;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+use Scop\StudioFileViewerBundle\Exception\AlreadyExistsException;
 use Scop\StudioFileViewerBundle\Exception\InvalidPathException;
 use Scop\StudioFileViewerBundle\Exception\NotWritableException;
 use Scop\StudioFileViewerBundle\Exception\PathAccessDeniedException;
@@ -235,6 +237,139 @@ final class FileViewerServiceTest extends FilesystemTestCase
 
         self::assertFalse($file['editable']);
         self::assertFalse($file['writable']);
+    }
+
+    public function testCreatesFileInSubdirectory(): void
+    {
+        $this->makeDirectory('config');
+
+        $entry = $this->createService()->createFile('config', 'services.yaml');
+
+        self::assertFileExists($this->root . '/config/services.yaml');
+        self::assertSame('config/services.yaml', $entry['path']);
+        self::assertFalse($entry['isDirectory']);
+        self::assertSame(0, $entry['size'], 'A new file starts empty.');
+    }
+
+    public function testCreatesFileAtRoot(): void
+    {
+        $entry = $this->createService()->createFile('', 'README.md');
+
+        self::assertFileExists($this->root . '/README.md');
+        self::assertSame('README.md', $entry['path']);
+    }
+
+    public function testCreatesDirectory(): void
+    {
+        $entry = $this->createService()->createDirectory('', 'var');
+
+        self::assertDirectoryExists($this->root . '/var');
+        self::assertTrue($entry['isDirectory']);
+        self::assertSame('var', $entry['path']);
+    }
+
+    public function testCreatedFileIsImmediatelyReadable(): void
+    {
+        $service = $this->createService();
+        $service->createFile('', 'notes.txt');
+
+        $file = $service->readFile('notes.txt');
+
+        self::assertSame(FileViewerService::STATUS_OK, $file['status']);
+        self::assertSame('', $file['content']);
+        self::assertTrue($file['editable']);
+    }
+
+    public function testCreateRejectsExistingEntry(): void
+    {
+        $this->writeFile('composer.json');
+
+        $this->expectException(AlreadyExistsException::class);
+        $this->createService()->createFile('', 'composer.json');
+    }
+
+    /**
+     * A dangling symlink occupies the name without file_exists() reporting it, so creating
+     * "over" it would silently write through the link.
+     */
+    public function testCreateRejectsNameTakenByDanglingSymlink(): void
+    {
+        if (!@symlink($this->root . '/missing-target', $this->root . '/link.txt')) {
+            self::markTestSkipped('Symlinks are not supported in this environment.');
+        }
+
+        $this->expectException(AlreadyExistsException::class);
+        $this->createService()->createFile('', 'link.txt');
+    }
+
+    /**
+     * The name is a single segment; a separator would let a caller escape the parent it
+     * passed and create entries anywhere under the root.
+     */
+    #[DataProvider('invalidNames')]
+    public function testCreateRejectsInvalidName(string $name): void
+    {
+        $this->expectException(InvalidPathException::class);
+        $this->createService()->createFile('', $name);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function invalidNames(): iterable
+    {
+        yield 'empty' => [''];
+        yield 'whitespace only' => ['   '];
+        yield 'dot' => ['.'];
+        yield 'parent' => ['..'];
+        yield 'slash' => ['sub/file.txt'];
+        yield 'traversal' => ['../escaped.txt'];
+        yield 'backslash' => ['sub\\file.txt'];
+        yield 'nul byte' => ["bad\0name"];
+        yield 'newline' => ["bad\nname"];
+        yield 'too long' => [str_repeat('a', 256)];
+    }
+
+    public function testCreateRejectsTraversalInParentPath(): void
+    {
+        $this->expectException(InvalidPathException::class);
+        $this->createService()->createFile('../..', 'escaped.txt');
+    }
+
+    public function testCreateRejectsNonDirectoryParent(): void
+    {
+        $this->writeFile('composer.json');
+
+        $this->expectException(InvalidPathException::class);
+        $this->createService()->createFile('composer.json', 'child.txt');
+    }
+
+    public function testCreateRejectsExcludedParent(): void
+    {
+        $this->makeDirectory('.git');
+
+        $this->expectException(PathAccessDeniedException::class);
+        $this->createService(excluded: ['.git'])->createDirectory('.git', 'hooks');
+    }
+
+    public function testCreateRejectsNameThatWouldBeExcluded(): void
+    {
+        $this->expectException(PathAccessDeniedException::class);
+        $this->createService(excluded: ['.git'])->createDirectory('', '.git');
+    }
+
+    public function testCreateRefusedWhenReadOnly(): void
+    {
+        $this->expectException(NotWritableException::class);
+        $this->createService(writable: false)->createFile('', 'notes.txt');
+    }
+
+    public function testCreateTrimsSurroundingWhitespace(): void
+    {
+        $entry = $this->createService()->createFile('', '  notes.txt  ');
+
+        self::assertSame('notes.txt', $entry['name']);
+        self::assertFileExists($this->root . '/notes.txt');
     }
 
     public function testDownloadAllowsOversizedAndBinaryFiles(): void

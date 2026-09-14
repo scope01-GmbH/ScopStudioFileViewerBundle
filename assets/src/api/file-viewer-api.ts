@@ -9,7 +9,7 @@
  */
 
 import { api } from '@pimcore/studio-ui-bundle/api'
-import type { DirectoryListing, FileContent, FileViewerConfig } from '../types'
+import type { DirectoryListing, FileContent, FileEntry, FileViewerConfig } from '../types'
 
 /**
  * The literal Studio API prefix, matching AbstractFileViewerController::ROUTE_PREFIX.
@@ -44,6 +44,10 @@ export const fileViewerApi = api
       scopFileViewerWriteFile: builder.mutation<FileContent, { path: string, content: string }>({
         query: (body) => ({ url: `${PREFIX}/file`, method: 'PUT', body }),
         invalidatesTags: (_result, _error, { path }) => [{ type: TAG, id: path }]
+      }),
+
+      scopFileViewerCreateEntry: builder.mutation<FileEntry, { path: string, name: string, type: 'file' | 'directory' }>({
+        query: (body) => ({ url: `${PREFIX}/entry`, method: 'POST', body })
       })
     }),
     overrideExisting: false
@@ -63,5 +67,6 @@ export const {
   useScopFileViewerDirectoryQuery,
   useLazyScopFileViewerDirectoryQuery,
   useScopFileViewerFileQuery,
-  useScopFileViewerWriteFileMutation
+  useScopFileViewerWriteFileMutation,
+  useScopFileViewerCreateEntryMutation
 } = fileViewerApi

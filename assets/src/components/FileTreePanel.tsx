@@ -10,10 +10,10 @@
 
 import React, { useCallback, useEffect, useState } from 'react'
 import type { Key } from 'react'
-import { Alert, ContextMenuWrapper, Flex, IconButton, Menu, Spin, Text, TreeElement } from '@pimcore/studio-ui-bundle/components'
+import { Alert, ContextMenuWrapper, Flex, IconButton, Menu, Spin, Text, TreeElement, useFormModal, useMessage } from '@pimcore/studio-ui-bundle/components'
 import type { TreeDataItem } from '@pimcore/studio-ui-bundle/components'
 import { useTranslation } from '@pimcore/studio-ui-bundle/app'
-import { useLazyScopFileViewerDirectoryQuery } from '../api/file-viewer-api'
+import { useLazyScopFileViewerDirectoryQuery, useScopFileViewerCreateEntryMutation } from '../api/file-viewer-api'
 import type { FileEntry } from '../types'
 import { toErrorMessage } from '../utils/format'
 
@@ -58,7 +58,10 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
   const [error, setError] = useState<string | null>(null)
 
   const { t } = useTranslation()
+  const modal = useFormModal()
+  const message = useMessage()
   const [loadDirectory] = useLazyScopFileViewerDirectoryQuery()
+  const [createEntry] = useScopFileViewerCreateEntryMutation()
 
   /**
    * Loads the root listing. Reloading drops every cached child branch and collapses the
@@ -119,6 +122,34 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
   }, [loadDirectory, t])
 
   /**
+   * Asks for a name, creates the entry in `parentPath` and refreshes that folder so the new
+   * entry appears without rebuilding the tree. A new file is opened straight away - creating
+   * one is almost always the first half of editing it.
+   */
+  const promptForNewEntry = useCallback((parentPath: string, type: 'file' | 'directory'): void => {
+    modal.input({
+      title: t(type === 'file' ? 'scop-file-viewer.tree.new-file.title' : 'scop-file-viewer.tree.new-folder.title'),
+      label: t('scop-file-viewer.tree.new.label'),
+      okText: t('scop-file-viewer.tree.new.ok'),
+      rule: { required: true, message: t('scop-file-viewer.tree.new.required') },
+      onOk: async (name: string): Promise<void> => {
+        try {
+          const entry = await createEntry({ path: parentPath, name, type }).unwrap()
+
+          await reloadFolder(parentPath)
+          message.success(t('scop-file-viewer.tree.created', { path: entry.path }))
+
+          if (!entry.isDirectory) {
+            onFileOpen(entry)
+          }
+        } catch (createError) {
+          message.error(toErrorMessage(createError, t('scop-file-viewer.tree.create-error', { name })))
+        }
+      }
+    })
+  }, [modal, t, createEntry, reloadFolder, message, onFileOpen])
+
+  /**
    * Directories get a right-click menu; files keep the default title so a right-click there
    * falls through to the browser menu.
    */
@@ -133,18 +164,31 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
       <ContextMenuWrapper
         renderMenu={ () => (
           <Menu
-            items={ [{
-              key: 'reload',
-              label: t('scop-file-viewer.tree.reload-folder'),
-              onClick: () => { void reloadFolder(entry.path) }
-            }] }
+            items={ [
+              {
+                key: 'new-file',
+                label: t('scop-file-viewer.tree.new-file'),
+                onClick: () => { promptForNewEntry(entry.path, 'file') }
+              },
+              {
+                key: 'new-folder',
+                label: t('scop-file-viewer.tree.new-folder'),
+                onClick: () => { promptForNewEntry(entry.path, 'directory') }
+              },
+              { key: 'create-divider', type: 'divider' },
+              {
+                key: 'reload',
+                label: t('scop-file-viewer.tree.reload-folder'),
+                onClick: () => { void reloadFolder(entry.path) }
+              }
+            ] }
           />
         ) }
       >
         { initialComponent }
       </ContextMenuWrapper>
     )
-  }, [reloadFolder, t])
+  }, [reloadFolder, promptForNewEntry, t])
 
   return (
     <Flex vertical gap="mini" style={ { height: '100%', overflow: 'hidden', padding: 8 } }>

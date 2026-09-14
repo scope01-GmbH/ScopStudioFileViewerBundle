@@ -12,6 +12,17 @@ scop-file-viewer.tree.reload-folder: Reload folder
 scop-file-viewer.tree.load-error: The project root could not be listed.
 scop-file-viewer.tree.reload-error: '"{{path}}" could not be reloaded.'
 
+# Creating entries
+scop-file-viewer.tree.new-file: New file
+scop-file-viewer.tree.new-folder: New folder
+scop-file-viewer.tree.new-file.title: Create file
+scop-file-viewer.tree.new-folder.title: Create folder
+scop-file-viewer.tree.new.label: Name
+scop-file-viewer.tree.new.required: A name is required.
+scop-file-viewer.tree.new.ok: Create
+scop-file-viewer.tree.created: '{{path}} created'
+scop-file-viewer.tree.create-error: '"{{name}}" could not be created.'
+
 # Editor
 scop-file-viewer.editor.empty-state: Select a file in the tree to open it.
 scop-file-viewer.editor.nothing-to-show: Nothing to show.

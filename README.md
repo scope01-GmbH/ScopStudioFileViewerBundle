@@ -15,6 +15,8 @@ for Studio: a file tree on the left, a tabbed editor on the right.
   half-written file behind.
 - **Reload** of the whole tree, or of a single directory via right-click → *Reload folder*,
   so files created outside Studio show up without rebuilding the tree.
+- **Create files and folders** from a directory's right-click menu. A new file opens straight
+  away for editing.
 - **Download** of any file, streamed from the server — including the large and binary files
   the editor refuses to open.
 - **Large files are never loaded.** Anything above `max_editable_size` is refused with a
@@ -98,10 +100,12 @@ additionally require an admin user.
 | GET    | `…/scop-file-viewer/directory` | List one directory (`?path=`)             |
 | GET    | `…/scop-file-viewer/file`      | Read a file (`?path=`, `?tail=1`)         |
 | PUT    | `…/scop-file-viewer/file`      | Overwrite a file (`{path, content}`)      |
+| POST   | `…/scop-file-viewer/entry`     | Create a file or folder (`{path, name, type}`) |
 | GET    | `…/scop-file-viewer/file/download` | Stream a file as an attachment (`?path=`) |
 
-Creating, renaming and deleting files is deliberately out of scope — the viewer edits what
-is already there.
+Renaming and deleting are deliberately out of scope — the viewer creates and edits, it does
+not destroy. Creation is only offered inside an existing directory, through that directory's
+context menu.
 
 ## Translations
 
@@ -153,6 +157,10 @@ configuration and anything else the PHP process can touch.
 - Excluded paths are enforced on both the requested path and the resolved path.
 - Writes are size-capped, refused for binary files, and performed atomically through a
   temporary file in the same directory that inherits the original's permissions.
+- On creation the name must be a single path segment: separators, `.`, `..`, control
+  characters and over-long names are rejected, so a caller cannot escape the parent
+  directory it addressed. Existing entries are never overwritten, and a name already taken
+  by a dangling symlink is refused too.
 - Downloads go through the same path jail, refuse directories, and are served as
   `application/octet-stream` with `X-Content-Type-Options: nosniff` so a file from the
   project can never be rendered as active content on this origin.

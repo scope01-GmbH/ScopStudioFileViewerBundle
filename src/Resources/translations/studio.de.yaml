@@ -12,6 +12,17 @@ scop-file-viewer.tree.reload-folder: Ordner neu laden
 scop-file-viewer.tree.load-error: Das Projektverzeichnis konnte nicht gelesen werden.
 scop-file-viewer.tree.reload-error: '"{{path}}" konnte nicht neu geladen werden.'
 
+# Anlegen von Einträgen
+scop-file-viewer.tree.new-file: Neue Datei
+scop-file-viewer.tree.new-folder: Neuer Ordner
+scop-file-viewer.tree.new-file.title: Datei erstellen
+scop-file-viewer.tree.new-folder.title: Ordner erstellen
+scop-file-viewer.tree.new.label: Name
+scop-file-viewer.tree.new.required: Ein Name ist erforderlich.
+scop-file-viewer.tree.new.ok: Erstellen
+scop-file-viewer.tree.created: '{{path}} erstellt'
+scop-file-viewer.tree.create-error: '"{{name}}" konnte nicht erstellt werden.'
+
 # Editor
 scop-file-viewer.editor.empty-state: Wählen Sie eine Datei im Baum aus, um sie zu öffnen.
 scop-file-viewer.editor.nothing-to-show: Nichts anzuzeigen.

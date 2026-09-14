@@ -16,9 +16,11 @@ declare(strict_types=1);
 namespace Scop\StudioFileViewerBundle\Service;
 
 use FilesystemIterator;
+use Scop\StudioFileViewerBundle\Exception\AlreadyExistsException;
 use Scop\StudioFileViewerBundle\Exception\FileViewerException;
 use Scop\StudioFileViewerBundle\Exception\InvalidPathException;
 use Scop\StudioFileViewerBundle\Exception\NotWritableException;
+use Scop\StudioFileViewerBundle\Exception\PathAccessDeniedException;
 use Scop\StudioFileViewerBundle\Exception\PathNotFoundException;
 use Scop\StudioFileViewerBundle\Exception\PayloadTooLargeException;
 use SplFileInfo;
@@ -190,6 +192,112 @@ final class FileViewerService
         clearstatcache(true, $absolute);
 
         return $this->readFile($relative);
+    }
+
+    /**
+     * Creates an empty file inside an existing directory.
+     *
+     * @return array<string, mixed> the new entry, as listDirectory() would describe it
+     */
+    public function createFile(string $parentPath, string $name): array
+    {
+        return $this->createEntry($parentPath, $name, directory: false);
+    }
+
+    /**
+     * Creates a directory inside an existing directory.
+     *
+     * @return array<string, mixed>
+     */
+    public function createDirectory(string $parentPath, string $name): array
+    {
+        return $this->createEntry($parentPath, $name, directory: true);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function createEntry(string $parentPath, string $name, bool $directory): array
+    {
+        if (!$this->writable) {
+            throw new NotWritableException('The file viewer is configured read-only.');
+        }
+
+        $name = $this->assertValidName($name);
+
+        // resolve() only accepts existing paths, so the parent is validated here and the new
+        // entry is appended to the result - which keeps the jail check on the parent.
+        $parent = $this->pathResolver->resolve($parentPath);
+        $parentRelative = $this->pathResolver->toRelative($parent);
+
+        if (!is_dir($parent)) {
+            throw new InvalidPathException(sprintf('"%s" is not a directory.', $parentRelative));
+        }
+
+        if (!is_writable($parent)) {
+            throw new NotWritableException(sprintf('"%s" is not writable.', $parentRelative));
+        }
+
+        $relative = '' === $parentRelative ? $name : $parentRelative . '/' . $name;
+
+        // A new entry inside an excluded directory would be invisible the moment it exists.
+        if ($this->pathResolver->isExcluded($relative)) {
+            throw new PathAccessDeniedException('This path is not available in the file viewer.');
+        }
+
+        $absolute = $parent . \DIRECTORY_SEPARATOR . $name;
+
+        // file_exists() follows symlinks, so is_link() is checked too: a dangling symlink
+        // occupies the name without file_exists() reporting it.
+        if (file_exists($absolute) || is_link($absolute)) {
+            throw new AlreadyExistsException(sprintf('"%s" already exists.', $relative));
+        }
+
+        $created = $directory
+            ? @mkdir($absolute, 0775)
+            : @touch($absolute);
+
+        if (false === $created) {
+            throw new NotWritableException(sprintf('"%s" could not be created.', $relative));
+        }
+
+        clearstatcache(true, $absolute);
+
+        return $this->describe(new SplFileInfo($absolute), $relative);
+    }
+
+    /**
+     * The name is a single path segment, never a path: allowing a separator here would let a
+     * caller create entries anywhere under the root regardless of the parent it passed.
+     *
+     * @throws InvalidPathException
+     */
+    private function assertValidName(string $name): string
+    {
+        $trimmed = trim($name);
+
+        if ('' === $trimmed) {
+            throw new InvalidPathException('The name must not be empty.');
+        }
+
+        if (\strlen($trimmed) > 255) {
+            throw new InvalidPathException('The name is too long.');
+        }
+
+        if ('.' === $trimmed || '..' === $trimmed) {
+            throw new InvalidPathException('The name must not be "." or "..".');
+        }
+
+        if (str_contains($trimmed, '/') || str_contains($trimmed, '\\')) {
+            throw new InvalidPathException('The name must not contain a path separator.');
+        }
+
+        // Covers the NUL byte along with every other control character.
+        if (1 === preg_match('/[\x00-\x1F\x7F]/', $trimmed)) {
+            throw new InvalidPathException('The name contains invalid characters.');
+        }
+
+        return $trimmed;
     }
 
     /**
