@@ -1,0 +1,5 @@
+# "@ScopStudioFileViewerBundle" resolves to the bundle's getPath(), which is the directory
+# holding the bundle class (src/) - so the resource must not repeat the "src/" segment.
+scop_studio_file_viewer:
+    resource: "@ScopStudioFileViewerBundle/Controller"
+    type: attribute

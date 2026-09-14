@@ -1,0 +1,35 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+
+    Scop\StudioFileViewerBundle\Service\PathResolver:
+        arguments:
+            $rootPath: '%scop_studio_file_viewer.root_path%'
+            $excludedPaths: '%scop_studio_file_viewer.excluded_paths%'
+
+    Scop\StudioFileViewerBundle\Service\FileViewerService:
+        arguments:
+            $pathResolver: '@Scop\StudioFileViewerBundle\Service\PathResolver'
+            $writable: '%scop_studio_file_viewer.writable%'
+            $maxEditableSize: '%scop_studio_file_viewer.max_editable_size%'
+            $tailBytes: '%scop_studio_file_viewer.tail_bytes%'
+
+    Scop\StudioFileViewerBundle\Security\AdminAccessGuard: ~
+
+    Scop\StudioFileViewerBundle\Controller\:
+        resource: '../src/Controller'
+        exclude: '../src/Controller/AbstractFileViewerController.php'
+        public: true
+        tags: ['controller.service_arguments']
+
+    # Registers this bundle's Studio frontend build with the Studio UI bundle.
+    # The BuildArchiveExtractionTrait receives its extractor through a #[Required] setter;
+    # it is called explicitly so the registration does not depend on autowiring.
+    Scop\StudioFileViewerBundle\Studio\WebpackEntryPointProvider:
+        public: false
+        calls:
+            - [setBuildArchiveExtractor, ['@Pimcore\Bundle\StudioUiBundle\Build\BuildArchiveExtractor']]
+        tags:
+            - { name: pimcore_studio_ui.webpack_entry_point_provider }

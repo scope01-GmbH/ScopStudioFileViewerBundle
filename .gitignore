@@ -1,0 +1,11 @@
+/vendor/
+/composer.lock
+/assets/node_modules/
+/assets/@mf-types/
+/assets/dist/
+/assets/.rsbuild/
+# The frontend build is shipped as src/Resources/build-dist/build-<id>.zip.
+# The expanded build below is produced from that archive at cache warmup.
+/src/Resources/public/studio/*
+!/src/Resources/public/studio/.gitkeep
+.DS_Store

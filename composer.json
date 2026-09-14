@@ -1,0 +1,57 @@
+{
+    "name": "scope01/studio-file-viewer-bundle",
+    "type": "pimcore-bundle",
+    "description": "Server file viewer and editor for Pimcore Studio - browse, search and edit project files from within the Studio UI.",
+    "keywords": [
+        "pimcore",
+        "pimcore-studio",
+        "file-explorer",
+        "file-viewer",
+        "scope01"
+    ],
+    "homepage": "https://github.com/scope01-GmbH/ScopStudioFileViewerBundle",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "scope01 GmbH",
+            "email": "info@scope01.com",
+            "homepage": "https://scope01.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "~8.3.0 || ~8.4.0 || ~8.5.0",
+        "pimcore/pimcore": "^2026.2",
+        "pimcore/studio-ui-bundle": "^2026.2",
+        "symfony/config": "^7.0",
+        "symfony/dependency-injection": "^7.0",
+        "symfony/http-foundation": "^7.0",
+        "symfony/http-kernel": "^7.0",
+        "symfony/routing": "^7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Scop\\StudioFileViewerBundle\\": "src/"
+        }
+    },
+    "extra": {
+        "pimcore": {
+            "bundles": [
+                "Scop\\StudioFileViewerBundle\\ScopStudioFileViewerBundle"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "require-dev": {
+        "phpunit/phpunit": "^11.5 || ^12.0 || ^13.0"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Scop\\StudioFileViewerBundle\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
+    }
+}
