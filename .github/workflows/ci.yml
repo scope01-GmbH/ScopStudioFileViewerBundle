@@ -62,9 +62,11 @@ jobs:
       - name: Verify the committed build is current
         working-directory: assets
         run: |
+          committed="$(git ls-files ../src/Resources/build-dist | xargs -r -n1 basename)"
           npm run build
-          if ! git diff --quiet -- ../src/Resources/build-dist; then
-            echo "::error::The committed frontend build is stale. Run 'npm run build' in assets/ and commit the result."
-            git status --short -- ../src/Resources/build-dist
+          rebuilt="$(ls ../src/Resources/build-dist)"
+          if [ "$committed" != "$rebuilt" ]; then
+            echo "::error::Committed build '$committed' was not built from these sources (rebuild gives '$rebuilt'). Run 'npm run build' in assets/ and commit the result."
             exit 1
           fi
+          echo "Committed build $committed matches the sources."

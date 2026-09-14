@@ -18,6 +18,11 @@ const repoRoot = path.resolve(__dirname, '..')
 function collectSourceFiles (dir: string, files: string[] = []): string[] {
   const ignored = new Set(['node_modules', 'dist', '.rsbuild', '@mf-types'])
 
+  // OS and editor droppings are git-ignored, so they exist on a developer's machine but not
+  // in CI or a fresh clone. Hashing them would make the build id - and therefore the name of
+  // the shipped archive - depend on which machine ran the build.
+  const ignoredFiles = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini', '.eslintcache'])
+
   let entries: fs.Dirent[]
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true })
@@ -31,7 +36,7 @@ function collectSourceFiles (dir: string, files: string[] = []): string[] {
     const full = path.resolve(dir, entry.name)
     if (entry.isDirectory()) {
       collectSourceFiles(full, files)
-    } else if (entry.isFile()) {
+    } else if (entry.isFile() && !ignoredFiles.has(entry.name)) {
       files.push(full)
     }
   }
