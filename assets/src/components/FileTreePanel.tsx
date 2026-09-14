@@ -64,7 +64,7 @@ function withChildren (nodes: TreeDataItem[], key: string, children: TreeDataIte
 
 export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps): React.JSX.Element => {
   const [treeData, setTreeData] = useState<TreeDataItem[]>([])
-  const [expandedKeys, setExpandedKeys] = useState<Key[]>([])
+  const [treeGeneration, setTreeGeneration] = useState(0)
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -89,13 +89,19 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
       // place to right-click for creating something at the top level.
       setTreeData([{
         key: ROOT_KEY,
-        title: t('scop-file-viewer.tree.root'),
-        icon: <Icon value="home-root-folder" />,
+        // The icon goes inside the title rather than into antd's `icon` slot: that slot is
+        // rendered as its own block here, which pushes the label onto a second line.
+        title: (
+          <Flex align="center" gap="mini">
+            <Icon value="home-root-folder" />
+            { t('scop-file-viewer.tree.root') }
+          </Flex>
+        ),
         isLeaf: false,
         children: listing.entries.map(toTreeNode),
         meta: { entry: { name: '', path: '', isDirectory: true, size: null, modified: 0, readable: true, writable: true } }
       }])
-      setExpandedKeys([ROOT_KEY])
+      setTreeGeneration((current) => current + 1)
       setError(null)
     } catch (loadError) {
       setError(toErrorMessage(loadError, t('scop-file-viewer.tree.load-error')))
@@ -136,7 +142,6 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
     try {
       const listing = await loadDirectory({ path: toApiPath(key) }, false).unwrap()
       setTreeData((current) => withChildren(current, key, listing.entries.map(toTreeNode)))
-      setExpandedKeys((current) => (current.includes(key) ? current : [...current, key]))
     } catch (reloadError) {
       setError(toErrorMessage(reloadError, t('scop-file-viewer.tree.reload-error', {
         path: ROOT_KEY === key ? t('scop-file-viewer.tree.root') : key
@@ -236,8 +241,11 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
         { !loaded && <Spin /> }
         { loaded && error === null && (
           <TreeElement
-            expandedKeys={ expandedKeys }
-            onExpand={ (keys: Key[]) => { setExpandedKeys(keys) } }
+            // Remounting on a full reload re-applies defaultExpandedKeys; TreeElement seeds
+            // its internal expansion state from it once, on mount.
+            key={ treeGeneration }
+            defaultExpandedKeys={ [ROOT_KEY] }
+            hasRoot
             onLoadData={ handleLoadData }
             onSelected={ handleSelect }
             selectedKeys={ selectedPath !== null ? [selectedPath] : [] }
