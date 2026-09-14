@@ -10,9 +10,33 @@
 
 import React, { useCallback, useState } from 'react'
 import { Flex, SplitLayout, Tabs, Text } from '@pimcore/studio-ui-bundle/components'
+import { createStyles } from '@pimcore/studio-ui-bundle/app'
 import { FileTreePanel } from './FileTreePanel'
 import { FileEditorPane } from './FileEditorPane'
 import type { FileEntry } from '../types'
+
+/**
+ * antd sizes the active tab pane from its content, so the pane grew to fit the whole file
+ * (1141px in a 772px content box) and every height below it inherited that. The editor then
+ * had no bounded height and .cm-scroller had nothing to scroll within, so long files were
+ * clipped rather than scrollable. Constraining the pane to its content box is what gives the
+ * editor a real box to scroll inside; `fullHeight` on Tabs does not reach this element.
+ */
+const useStyles = createStyles(({ css }) => ({
+  tabs: css`
+    height: 100%;
+    min-height: 0;
+
+    .ant-tabs-content {
+      height: 100%;
+    }
+
+    .ant-tabs-tabpane {
+      height: 100%;
+      min-height: 0;
+    }
+  `
+}))
 
 interface OpenFile {
   path: string
@@ -23,6 +47,8 @@ interface OpenFile {
 export const FileViewerWidget = (): React.JSX.Element => {
   const [openFiles, setOpenFiles] = useState<OpenFile[]>([])
   const [activePath, setActivePath] = useState<string | null>(null)
+
+  const { styles } = useStyles()
 
   const hasOpenFile = openFiles.length > 0
 
@@ -98,6 +124,7 @@ export const FileViewerWidget = (): React.JSX.Element => {
           : (
             <Tabs
               activeKey={ activePath ?? undefined }
+              className={ styles.tabs }
               fullHeight
               hideAdd
               items={ openFiles.map((file) => ({
