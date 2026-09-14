@@ -1,4 +1,4 @@
-# Scop Studio File Viewer Bundle
+# StudioUI File Viewer Bundle
 
 Browse, edit and download server files from within the **Pimcore Studio** UI.
 
