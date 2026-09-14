@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Matches the `php` constraint in composer.json, which in turn is bounded by
+        # pimcore/pimcore ^2026.2 (~8.4 || ~8.5).
+        php: ['8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          # The extensions pimcore/pimcore requires, so `composer install` resolves.
+          extensions: curl, dom, exif, fileinfo, gd, iconv, intl, mbstring, openssl, pdo, pdo_mysql, simplexml, zip, zlib
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Run tests
+        run: composer test
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: assets/package-lock.json
+
+      - name: Install dependencies
+        working-directory: assets
+        run: npm ci
+
+      - name: Check types
+        working-directory: assets
+        run: npm run check-types
+
+      # The build id is a hash of the frontend sources and names the shipped archive, so a
+      # rebuild that changes the archive means the committed build does not match the source
+      # - i.e. someone edited the frontend and tagged without running `npm run build`.
+      # Consumers install the archive, not the sources, so that would ship stale UI.
+      - name: Verify the committed build is current
+        working-directory: assets
+        run: |
+          npm run build
+          if ! git diff --quiet -- ../src/Resources/build-dist; then
+            echo "::error::The committed frontend build is stale. Run 'npm run build' in assets/ and commit the result."
+            git status --short -- ../src/Resources/build-dist
+            exit 1
+          fi

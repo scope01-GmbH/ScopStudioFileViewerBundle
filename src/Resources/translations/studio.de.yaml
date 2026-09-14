@@ -6,6 +6,7 @@
 scop-file-viewer.title: Datei-Viewer
 
 # Dateibaum
+scop-file-viewer.tree.root: Projektverzeichnis
 scop-file-viewer.tree.title: Projektdateien
 scop-file-viewer.tree.reload: Dateibaum neu laden
 scop-file-viewer.tree.reload-folder: Ordner neu laden

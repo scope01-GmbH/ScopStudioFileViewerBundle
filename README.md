@@ -15,8 +15,9 @@ for Studio: a file tree on the left, a tabbed editor on the right.
   half-written file behind.
 - **Reload** of the whole tree, or of a single directory via right-click → *Reload folder*,
   so files created outside Studio show up without rebuilding the tree.
-- **Create files and folders** from a directory's right-click menu. A new file opens straight
-  away for editing.
+- **Create files and folders** from a directory's right-click menu — including the project
+  root, which is shown as its own node so it has somewhere to right-click. A new file opens
+  straight away for editing.
 - **Download** of any file, streamed from the server — including the large and binary files
   the editor refuses to open.
 - **Large files are never loaded.** Anything above `max_editable_size` is refused with a
@@ -27,7 +28,7 @@ for Studio: a file tree on the left, a tabbed editor on the right.
 
 ## Requirements
 
-- PHP 8.3+
+- PHP 8.4+
 - Pimcore 2026.2+ with `pimcore/studio-ui-bundle`
 
 ## Installation
@@ -185,6 +186,10 @@ runtime remote and is never bundled into this package's output.
 composer install
 composer test
 ```
+
+CI runs the suite on PHP 8.4 and 8.5, type-checks the frontend, and rebuilds it to verify the
+committed archive matches the sources — consumers install the archive rather than building
+it, so a stale one would ship old UI.
 
 `PathResolver` and `FileViewerService` are deliberately framework free, so the suite needs
 neither a Symfony kernel nor a Pimcore installation — it runs against a real temporary

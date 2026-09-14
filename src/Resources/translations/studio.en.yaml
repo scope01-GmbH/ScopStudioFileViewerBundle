@@ -6,6 +6,7 @@
 scop-file-viewer.title: File Viewer
 
 # Tree panel
+scop-file-viewer.tree.root: Project root
 scop-file-viewer.tree.title: Project files
 scop-file-viewer.tree.reload: Reload the file tree
 scop-file-viewer.tree.reload-folder: Reload folder

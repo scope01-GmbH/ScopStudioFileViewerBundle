@@ -10,7 +10,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react'
 import type { Key } from 'react'
-import { Alert, ContextMenuWrapper, Flex, IconButton, Menu, Spin, Text, TreeElement, useFormModal, useMessage } from '@pimcore/studio-ui-bundle/components'
+import { Alert, ContextMenuWrapper, Flex, Icon, IconButton, Menu, Spin, Text, TreeElement, useFormModal, useMessage } from '@pimcore/studio-ui-bundle/components'
 import type { TreeDataItem } from '@pimcore/studio-ui-bundle/components'
 import { useTranslation } from '@pimcore/studio-ui-bundle/app'
 import { useLazyScopFileViewerDirectoryQuery, useScopFileViewerCreateEntryMutation } from '../api/file-viewer-api'
@@ -20,6 +20,17 @@ import { toErrorMessage } from '../utils/format'
 interface FileTreePanelProps {
   onFileOpen: (entry: FileEntry) => void
   selectedPath: string | null
+}
+
+/**
+ * The API addresses the configured root as an empty path, but antd needs a non-empty, unique
+ * key for the node that represents it. Everything below works in tree keys and converts at
+ * the API boundary.
+ */
+const ROOT_KEY = '__root__'
+
+function toApiPath (key: string): string {
+  return ROOT_KEY === key ? '' : key
 }
 
 function toTreeNode (entry: FileEntry): TreeDataItem {
@@ -73,8 +84,18 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
 
     try {
       const listing = await loadDirectory({ path: '' }, false).unwrap()
-      setTreeData(listing.entries.map(toTreeNode))
-      setExpandedKeys([])
+
+      // A node for the root itself, so it can carry a context menu: without it there is no
+      // place to right-click for creating something at the top level.
+      setTreeData([{
+        key: ROOT_KEY,
+        title: t('scop-file-viewer.tree.root'),
+        icon: <Icon value="home-root-folder" />,
+        isLeaf: false,
+        children: listing.entries.map(toTreeNode),
+        meta: { entry: { name: '', path: '', isDirectory: true, size: null, modified: 0, readable: true, writable: true } }
+      }])
+      setExpandedKeys([ROOT_KEY])
       setError(null)
     } catch (loadError) {
       setError(toErrorMessage(loadError, t('scop-file-viewer.tree.load-error')))
@@ -94,7 +115,7 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
     // re-request every empty directory on each expand. Loading it once is enough.
     if (node.children !== undefined) return
 
-    const listing = await loadDirectory({ path: key }, false).unwrap()
+    const listing = await loadDirectory({ path: toApiPath(key) }, false).unwrap()
     setTreeData((current) => withChildren(current, key, listing.entries.map(toTreeNode)))
   }, [loadDirectory])
 
@@ -113,11 +134,13 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
    */
   const reloadFolder = useCallback(async (key: string): Promise<void> => {
     try {
-      const listing = await loadDirectory({ path: key }, false).unwrap()
+      const listing = await loadDirectory({ path: toApiPath(key) }, false).unwrap()
       setTreeData((current) => withChildren(current, key, listing.entries.map(toTreeNode)))
       setExpandedKeys((current) => (current.includes(key) ? current : [...current, key]))
     } catch (reloadError) {
-      setError(toErrorMessage(reloadError, t('scop-file-viewer.tree.reload-error', { path: key })))
+      setError(toErrorMessage(reloadError, t('scop-file-viewer.tree.reload-error', {
+        path: ROOT_KEY === key ? t('scop-file-viewer.tree.root') : key
+      })))
     }
   }, [loadDirectory, t])
 
@@ -126,7 +149,7 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
    * entry appears without rebuilding the tree. A new file is opened straight away - creating
    * one is almost always the first half of editing it.
    */
-  const promptForNewEntry = useCallback((parentPath: string, type: 'file' | 'directory'): void => {
+  const promptForNewEntry = useCallback((parentKey: string, type: 'file' | 'directory'): void => {
     modal.input({
       title: t(type === 'file' ? 'scop-file-viewer.tree.new-file.title' : 'scop-file-viewer.tree.new-folder.title'),
       label: t('scop-file-viewer.tree.new.label'),
@@ -134,9 +157,9 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
       rule: { required: true, message: t('scop-file-viewer.tree.new.required') },
       onOk: async (name: string): Promise<void> => {
         try {
-          const entry = await createEntry({ path: parentPath, name, type }).unwrap()
+          const entry = await createEntry({ path: toApiPath(parentKey), name, type }).unwrap()
 
-          await reloadFolder(parentPath)
+          await reloadFolder(parentKey)
           message.success(t('scop-file-viewer.tree.created', { path: entry.path }))
 
           if (!entry.isDirectory) {
@@ -160,6 +183,10 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
       return initialComponent
     }
 
+    // Addressed by tree key rather than entry.path: the root's path is empty, which is a
+    // valid API path but not a node key.
+    const key = String(node.key)
+
     return (
       <ContextMenuWrapper
         renderMenu={ () => (
@@ -168,18 +195,18 @@ export const FileTreePanel = ({ onFileOpen, selectedPath }: FileTreePanelProps):
               {
                 key: 'new-file',
                 label: t('scop-file-viewer.tree.new-file'),
-                onClick: () => { promptForNewEntry(entry.path, 'file') }
+                onClick: () => { promptForNewEntry(key, 'file') }
               },
               {
                 key: 'new-folder',
                 label: t('scop-file-viewer.tree.new-folder'),
-                onClick: () => { promptForNewEntry(entry.path, 'directory') }
+                onClick: () => { promptForNewEntry(key, 'directory') }
               },
               { key: 'create-divider', type: 'divider' },
               {
                 key: 'reload',
                 label: t('scop-file-viewer.tree.reload-folder'),
-                onClick: () => { void reloadFolder(entry.path) }
+                onClick: () => { void reloadFolder(key) }
               }
             ] }
           />

@@ -20,7 +20,7 @@
         }
     ],
     "require": {
-        "php": "~8.3.0 || ~8.4.0 || ~8.5.0",
+        "php": "~8.4.0 || ~8.5.0",
         "pimcore/pimcore": "^2026.2",
         "pimcore/studio-ui-bundle": "^2026.2",
         "symfony/config": "^7.0",
