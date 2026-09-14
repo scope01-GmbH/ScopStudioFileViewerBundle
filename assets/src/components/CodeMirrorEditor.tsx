@@ -25,11 +25,32 @@ interface CodeMirrorEditorProps {
 
 const useStyles = createStyles(({ token, css }) => ({
   editor: css`
-    height: 100%;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
 
     .cm-editor {
-      height: 100%;
+      /*
+       * The editor has to be sized as a flex child rather than with height: 100%.
+       * A percentage height only resolves against a parent with a definite height, and
+       * when it does not resolve the editor grows to fit its content - which leaves
+       * .cm-scroller with nothing to scroll inside, so a long file is simply clipped.
+       * This is the same approach Studio uses for its own CodeMirror instances.
+       */
+      flex: 1;
+      min-height: 0;
       font-size: 12px;
+      border: 1px solid ${token.colorBorder};
+      border-radius: ${token.borderRadius}px;
+      /* Keeps the scroller's corners inside the rounded border. */
+      overflow: hidden;
+    }
+
+    .cm-editor.cm-focused {
+      border-color: ${token.colorPrimary};
+      /* CodeMirror's own focus ring would sit outside the border we just drew. */
+      outline: none;
     }
 
     .cm-scroller {
@@ -76,7 +97,6 @@ export const CodeMirrorEditor = ({ path, value, onChange, readOnly }: CodeMirror
       } }
       className={ styles.editor }
       extensions={ extensions }
-      height="100%"
       onChange={ onChange }
       readOnly={ readOnly }
       theme={ isDark ? oneDark : 'light' }

@@ -24,6 +24,13 @@ export const FileViewerWidget = (): React.JSX.Element => {
   const [openFiles, setOpenFiles] = useState<OpenFile[]>([])
   const [activePath, setActivePath] = useState<string | null>(null)
 
+  const hasOpenFile = openFiles.length > 0
+
+  // SplitLayout sizes are percentages and both items need one: given only the left size the
+  // right pane keeps its default instead of claiming the remainder, which leaves dead space
+  // on the right. Studio's own layouts always pass a complementary pair (e.g. 25 / 75).
+  const leftSize = hasOpenFile ? 15 : 22
+
   const handleFileOpen = useCallback((entry: FileEntry): void => {
     setOpenFiles((current) => (
       current.some((file) => file.path === entry.path)
@@ -68,9 +75,12 @@ export const FileViewerWidget = (): React.JSX.Element => {
       leftItem={ {
         // `size` is a percentage of the container; `minSize`/`maxSize` are pixels. Passing a
         // pixel value as `size` makes the left pane swallow the whole width.
-        minSize: 220,
-        maxSize: 460,
-        size: 22,
+        //
+        // With nothing open the tree is the content, so it gets the room; once a file is
+        // open the editor is what the user is looking at and the tree steps back.
+        minSize: 200,
+        maxSize: hasOpenFile ? 320 : 460,
+        size: leftSize,
         children: (
           <FileTreePanel onFileOpen={ handleFileOpen } selectedPath={ activePath } />
         )
@@ -78,7 +88,8 @@ export const FileViewerWidget = (): React.JSX.Element => {
       resizeAble
       rightItem={ {
         minSize: 320,
-        children: openFiles.length === 0
+        size: 100 - leftSize,
+        children: !hasOpenFile
           ? (
             <Flex align="center" justify="center" style={ { height: '100%' } }>
               <Text type="secondary">Select a file in the tree to open it.</Text>

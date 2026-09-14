@@ -167,7 +167,7 @@ export const FileEditorPane = ({ path, onDirtyChange }: FileEditorPaneProps): Re
         </div>
       ) }
 
-      <div style={ { flex: 1, minHeight: 0, overflow: 'hidden' } }>
+      <div style={ { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '0 12px 12px' } }>
         <Suspense fallback={ <Flex align="center" justify="center" style={ { height: '100%' } }><Spin /></Flex> }>
           <CodeMirrorEditor
             onChange={ (value: string) => { if (canEdit) setDraft(value) } }
