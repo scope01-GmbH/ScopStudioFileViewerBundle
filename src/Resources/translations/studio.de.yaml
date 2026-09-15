@@ -24,6 +24,24 @@ scop-file-viewer.tree.new.ok: Erstellen
 scop-file-viewer.tree.created: '{{path}} erstellt'
 scop-file-viewer.tree.create-error: '"{{name}}" konnte nicht erstellt werden.'
 
+# Umbenennen und Löschen
+scop-file-viewer.tree.rename: Umbenennen
+scop-file-viewer.tree.rename.title: '{{name}} umbenennen'
+scop-file-viewer.tree.rename.label: Neuer Name
+scop-file-viewer.tree.rename.required: Ein Name ist erforderlich.
+scop-file-viewer.tree.rename.ok: Umbenennen
+scop-file-viewer.tree.renamed: '{{from}} in {{to}} umbenannt'
+scop-file-viewer.tree.rename-error: '"{{path}}" konnte nicht umbenannt werden.'
+scop-file-viewer.tree.delete: Löschen
+scop-file-viewer.tree.delete.file-title: '{{name}} löschen?'
+scop-file-viewer.tree.delete.folder-title: 'Ordner {{name}} löschen?'
+scop-file-viewer.tree.delete.file-content: '{{path}} wird auf dem Server gelöscht. Das kann nicht rückgängig gemacht werden.'
+scop-file-viewer.tree.delete.folder-content: '{{path}} wird mit dem gesamten Inhalt auf dem Server gelöscht. Das kann nicht rückgängig gemacht werden.'
+scop-file-viewer.tree.delete.ok: Löschen
+scop-file-viewer.tree.delete.cancel: Abbrechen
+scop-file-viewer.tree.deleted: '{{path}} gelöscht'
+scop-file-viewer.tree.delete-error: '"{{path}}" konnte nicht gelöscht werden.'
+
 # Editor
 scop-file-viewer.editor.empty-state: Wählen Sie eine Datei im Baum aus, um sie zu öffnen.
 scop-file-viewer.editor.nothing-to-show: Nichts anzuzeigen.

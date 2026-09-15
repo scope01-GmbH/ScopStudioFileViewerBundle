@@ -9,7 +9,7 @@
  */
 
 import { api } from '@pimcore/studio-ui-bundle/api'
-import type { DirectoryListing, FileContent, FileEntry, FileViewerConfig } from '../types'
+import type { DeletedEntry, DirectoryListing, FileContent, FileEntry, FileViewerConfig } from '../types'
 
 /**
  * The literal Studio API prefix, matching AbstractFileViewerController::ROUTE_PREFIX.
@@ -48,6 +48,17 @@ export const fileViewerApi = api
 
       scopFileViewerCreateEntry: builder.mutation<FileEntry, { path: string, name: string, type: 'file' | 'directory' }>({
         query: (body) => ({ url: `${PREFIX}/entry`, method: 'POST', body })
+      }),
+
+      scopFileViewerRenameEntry: builder.mutation<FileEntry, { path: string, name: string }>({
+        query: (body) => ({ url: `${PREFIX}/entry`, method: 'PATCH', body }),
+        // The cached content now lives under a different path, so the old one has to go.
+        invalidatesTags: (_result, _error, { path }) => [{ type: TAG, id: path }]
+      }),
+
+      scopFileViewerDeleteEntry: builder.mutation<DeletedEntry, { path: string }>({
+        query: ({ path }) => ({ url: `${PREFIX}/entry`, method: 'DELETE', params: { path } }),
+        invalidatesTags: (_result, _error, { path }) => [{ type: TAG, id: path }]
       })
     }),
     overrideExisting: false
@@ -68,5 +79,7 @@ export const {
   useLazyScopFileViewerDirectoryQuery,
   useScopFileViewerFileQuery,
   useScopFileViewerWriteFileMutation,
-  useScopFileViewerCreateEntryMutation
+  useScopFileViewerCreateEntryMutation,
+  useScopFileViewerRenameEntryMutation,
+  useScopFileViewerDeleteEntryMutation
 } = fileViewerApi

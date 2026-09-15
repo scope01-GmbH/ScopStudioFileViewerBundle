@@ -22,6 +22,12 @@ export interface FileEntry {
   writable: boolean
 }
 
+/** What the delete endpoint reports back about the entry it removed. */
+export interface DeletedEntry {
+  path: string
+  isDirectory: boolean
+}
+
 export interface DirectoryListing {
   path: string
   entries: FileEntry[]

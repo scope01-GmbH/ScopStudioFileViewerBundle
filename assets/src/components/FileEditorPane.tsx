@@ -16,7 +16,7 @@ import {
   useScopFileViewerFileQuery,
   useScopFileViewerWriteFileMutation
 } from '../api/file-viewer-api'
-import { formatBytes, toErrorMessage } from '../utils/format'
+import { formatBytes, toErrorMessage, UNESCAPED } from '../utils/format'
 import { getLanguageLabel } from '../utils/language'
 
 // CodeMirror and its language packages are the bulk of this bundle. Loading them on demand
@@ -57,9 +57,9 @@ export const FileEditorPane = ({ path, onDirtyChange }: FileEditorPaneProps): Re
 
     try {
       await writeFile({ path, content: draft }).unwrap()
-      message.success(t('scop-file-viewer.editor.save-success', { path }))
+      message.success(t('scop-file-viewer.editor.save-success', { path, ...UNESCAPED }))
     } catch (saveError) {
-      message.error(toErrorMessage(saveError, t('scop-file-viewer.editor.save-error', { path })))
+      message.error(toErrorMessage(saveError, t('scop-file-viewer.editor.save-error', { path, ...UNESCAPED })))
     }
   }, [draft, path, writeFile, message, t])
 
@@ -76,7 +76,7 @@ export const FileEditorPane = ({ path, onDirtyChange }: FileEditorPaneProps): Re
   if (error !== undefined && error !== null) {
     return (
       <div style={ { padding: 16 } }>
-        <Alert message={ toErrorMessage(error, t('scop-file-viewer.editor.open-error', { path })) } showIcon type="error" />
+        <Alert message={ toErrorMessage(error, t('scop-file-viewer.editor.open-error', { path, ...UNESCAPED })) } showIcon type="error" />
       </div>
     )
   }
@@ -90,7 +90,7 @@ export const FileEditorPane = ({ path, onDirtyChange }: FileEditorPaneProps): Re
       <div style={ { padding: 16 } }>
         <Alert
           action={ downloadButton }
-          description={ t('scop-file-viewer.editor.binary.description', { path, size: formatBytes(data.size) }) }
+          description={ t('scop-file-viewer.editor.binary.description', { path, size: formatBytes(data.size), ...UNESCAPED }) }
           message={ t('scop-file-viewer.editor.binary.title') }
           showIcon
           type="info"
@@ -116,7 +116,8 @@ export const FileEditorPane = ({ path, onDirtyChange }: FileEditorPaneProps): Re
           description={ t('scop-file-viewer.editor.too-large.description', {
             path,
             size: formatBytes(data.size),
-            limit: formatBytes(data.maxEditableSize)
+            limit: formatBytes(data.maxEditableSize),
+            ...UNESCAPED
           }) }
           message={ t('scop-file-viewer.editor.too-large.title') }
           showIcon

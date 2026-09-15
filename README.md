@@ -18,6 +18,9 @@ for Studio: a file tree on the left, a tabbed editor on the right.
 - **Create files and folders** from a directory's right-click menu — including the project
   root, which is shown as its own node so it has somewhere to right-click. A new file opens
   straight away for editing.
+- **Rename and delete** any entry from its right-click menu. Deleting always asks first and
+  takes a folder's whole subtree with it; open tabs follow a rename and close when the file
+  behind them is gone. The project root itself cannot be renamed or deleted.
 - **Download** of any file, streamed from the server — including the large and binary files
   the editor refuses to open.
 - **Large files are never loaded.** Anything above `max_editable_size` is refused with a
@@ -102,11 +105,14 @@ additionally require an admin user.
 | GET    | `…/scop-file-viewer/file`      | Read a file (`?path=`, `?tail=1`)         |
 | PUT    | `…/scop-file-viewer/file`      | Overwrite a file (`{path, content}`)      |
 | POST   | `…/scop-file-viewer/entry`     | Create a file or folder (`{path, name, type}`) |
+| PATCH  | `…/scop-file-viewer/entry`     | Rename an entry in place (`{path, name}`) |
+| DELETE | `…/scop-file-viewer/entry`     | Delete an entry, folders recursively (`?path=`) |
 | GET    | `…/scop-file-viewer/file/download` | Stream a file as an attachment (`?path=`) |
 
-Renaming and deleting are deliberately out of scope — the viewer creates and edits, it does
-not destroy. Creation is only offered inside an existing directory, through that directory's
-context menu.
+Creating is only offered inside an existing directory, through that directory's context menu.
+A rename takes a single name, never a path, so it can never move an entry somewhere else.
+Everything that writes needs `writable: true`; with the viewer read-only, creating, renaming
+and deleting are refused along with saving.
 
 ## Translations
 

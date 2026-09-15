@@ -20,6 +20,7 @@ use Scop\StudioFileViewerBundle\Exception\AlreadyExistsException;
 use Scop\StudioFileViewerBundle\Exception\InvalidPathException;
 use Scop\StudioFileViewerBundle\Exception\NotWritableException;
 use Scop\StudioFileViewerBundle\Exception\PathAccessDeniedException;
+use Scop\StudioFileViewerBundle\Exception\PathNotFoundException;
 use Scop\StudioFileViewerBundle\Exception\PayloadTooLargeException;
 use Scop\StudioFileViewerBundle\Service\FileViewerService;
 use Scop\StudioFileViewerBundle\Service\PathResolver;
@@ -370,6 +371,202 @@ final class FileViewerServiceTest extends FilesystemTestCase
 
         self::assertSame('notes.txt', $entry['name']);
         self::assertFileExists($this->root . '/notes.txt');
+    }
+
+    public function testRenamesFileInPlace(): void
+    {
+        $this->writeFile('src/Old.php', '<?php');
+
+        $entry = $this->createService()->renameEntry('src/Old.php', 'New.php');
+
+        self::assertSame('New.php', $entry['name']);
+        self::assertSame('src/New.php', $entry['path']);
+        self::assertFileDoesNotExist($this->root . '/src/Old.php');
+        self::assertStringEqualsFile($this->root . '/src/New.php', '<?php');
+    }
+
+    public function testRenamesDirectoryWithItsContents(): void
+    {
+        $this->writeFile('src/old/deep/file.txt', 'kept');
+
+        $entry = $this->createService()->renameEntry('src/old', 'new');
+
+        self::assertTrue($entry['isDirectory']);
+        self::assertSame('src/new', $entry['path']);
+        self::assertStringEqualsFile($this->root . '/src/new/deep/file.txt', 'kept');
+    }
+
+    public function testRenameToTheSameNameIsANoop(): void
+    {
+        $this->writeFile('notes.txt', 'kept');
+
+        $entry = $this->createService()->renameEntry('notes.txt', 'notes.txt');
+
+        self::assertSame('notes.txt', $entry['path']);
+        self::assertStringEqualsFile($this->root . '/notes.txt', 'kept');
+    }
+
+    public function testRenameRejectsExistingTarget(): void
+    {
+        $this->writeFile('a.txt');
+        $this->writeFile('b.txt');
+
+        $this->expectException(AlreadyExistsException::class);
+        $this->createService()->renameEntry('a.txt', 'b.txt');
+    }
+
+    #[DataProvider('invalidNames')]
+    public function testRenameRejectsInvalidName(string $name): void
+    {
+        $this->writeFile('notes.txt');
+
+        $this->expectException(InvalidPathException::class);
+        $this->createService()->renameEntry('notes.txt', $name);
+    }
+
+    public function testRenameRefusesTheRoot(): void
+    {
+        $this->expectException(InvalidPathException::class);
+        $this->createService()->renameEntry('', 'elsewhere');
+    }
+
+    public function testRenameRejectsExcludedEntry(): void
+    {
+        $this->writeFile('.git/config');
+
+        $this->expectException(PathAccessDeniedException::class);
+        $this->createService(excluded: ['.git'])->renameEntry('.git', 'git-backup');
+    }
+
+    public function testRenameRejectsNameThatWouldBeExcluded(): void
+    {
+        $this->makeDirectory('repo');
+
+        $this->expectException(PathAccessDeniedException::class);
+        $this->createService(excluded: ['.git'])->renameEntry('repo', '.git');
+    }
+
+    public function testRenameRefusedWhenReadOnly(): void
+    {
+        $this->writeFile('notes.txt');
+
+        $this->expectException(NotWritableException::class);
+        $this->createService(writable: false)->renameEntry('notes.txt', 'other.txt');
+    }
+
+    /**
+     * A symlink has to be renamed as the link, not as whatever it points at.
+     */
+    public function testRenameMovesTheSymlinkAndNotItsTarget(): void
+    {
+        $this->writeFile('target.txt', 'target');
+        symlink($this->root . '/target.txt', $this->root . '/link.txt');
+
+        $this->createService()->renameEntry('link.txt', 'renamed-link.txt');
+
+        self::assertTrue(is_link($this->root . '/renamed-link.txt'));
+        self::assertFileExists($this->root . '/target.txt');
+        self::assertFileDoesNotExist($this->root . '/link.txt');
+    }
+
+    public function testDeletesFile(): void
+    {
+        $this->writeFile('src/notes.txt');
+
+        $result = $this->createService()->deleteEntry('src/notes.txt');
+
+        self::assertSame('src/notes.txt', $result['path']);
+        self::assertFalse($result['isDirectory']);
+        self::assertFileDoesNotExist($this->root . '/src/notes.txt');
+        self::assertDirectoryExists($this->root . '/src');
+    }
+
+    public function testDeletesDirectoryWithEverythingInside(): void
+    {
+        $this->writeFile('var/cache/deep/file.txt');
+        $this->makeDirectory('var/cache/empty');
+
+        $result = $this->createService()->deleteEntry('var/cache');
+
+        self::assertTrue($result['isDirectory']);
+        self::assertDirectoryDoesNotExist($this->root . '/var/cache');
+        self::assertDirectoryExists($this->root . '/var');
+    }
+
+    public function testDeleteRefusesTheRoot(): void
+    {
+        $this->writeFile('keep.txt');
+
+        try {
+            $this->createService()->deleteEntry('');
+            self::fail('Deleting the root should have been refused.');
+        } catch (InvalidPathException) {
+            self::assertFileExists($this->root . '/keep.txt');
+        }
+    }
+
+    public function testDeleteRefusesTheRootViaTraversal(): void
+    {
+        $this->makeDirectory('src');
+
+        $this->expectException(InvalidPathException::class);
+        $this->createService()->deleteEntry('src/..');
+    }
+
+    public function testDeleteRejectsMissingEntry(): void
+    {
+        $this->expectException(PathNotFoundException::class);
+        $this->createService()->deleteEntry('nope.txt');
+    }
+
+    public function testDeleteRejectsExcludedPath(): void
+    {
+        $this->writeFile('.git/config');
+
+        $this->expectException(PathAccessDeniedException::class);
+        $this->createService(excluded: ['.git'])->deleteEntry('.git/config');
+    }
+
+    public function testDeleteRejectsPathOutsideTheJail(): void
+    {
+        $this->expectException(InvalidPathException::class);
+        $this->createService()->deleteEntry('../../etc/passwd');
+    }
+
+    public function testDeleteRefusedWhenReadOnly(): void
+    {
+        $this->writeFile('notes.txt');
+
+        $this->expectException(NotWritableException::class);
+        $this->createService(writable: false)->deleteEntry('notes.txt');
+    }
+
+    /**
+     * Deleting a link must unlink it, never walk into the directory it points at.
+     */
+    public function testDeleteUnlinksSymlinkWithoutTouchingItsTarget(): void
+    {
+        $this->writeFile('shared/keep.txt', 'keep');
+        $this->makeDirectory('var');
+        symlink($this->root . '/shared', $this->root . '/var/link');
+
+        $result = $this->createService()->deleteEntry('var/link');
+
+        self::assertFalse($result['isDirectory']);
+        self::assertFalse(is_link($this->root . '/var/link'));
+        self::assertStringEqualsFile($this->root . '/shared/keep.txt', 'keep');
+    }
+
+    public function testDeleteDoesNotFollowSymlinksInsideADeletedDirectory(): void
+    {
+        $this->writeFile('shared/keep.txt', 'keep');
+        $this->makeDirectory('var/cache');
+        symlink($this->root . '/shared', $this->root . '/var/cache/link');
+
+        $this->createService()->deleteEntry('var/cache');
+
+        self::assertDirectoryDoesNotExist($this->root . '/var/cache');
+        self::assertStringEqualsFile($this->root . '/shared/keep.txt', 'keep');
     }
 
     public function testDownloadAllowsOversizedAndBinaryFiles(): void

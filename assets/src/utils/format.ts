@@ -8,6 +8,13 @@
  * @license   MIT
  */
 
+/**
+ * i18next escapes interpolated values by default, which is meant for translations rendered as
+ * raw HTML. Ours are rendered as text by React, which escapes on its own, so the default only
+ * corrupts what it touches: a path comes out as "var&#x2F;log" instead of "var/log".
+ */
+export const UNESCAPED = { interpolation: { escapeValue: false } } as const
+
 const UNITS = ['B', 'KB', 'MB', 'GB', 'TB']
 
 export function formatBytes (bytes: number | null | undefined): string {

@@ -16,6 +16,8 @@ declare(strict_types=1);
 namespace Scop\StudioFileViewerBundle\Service;
 
 use FilesystemIterator;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use Scop\StudioFileViewerBundle\Exception\AlreadyExistsException;
 use Scop\StudioFileViewerBundle\Exception\FileViewerException;
 use Scop\StudioFileViewerBundle\Exception\InvalidPathException;
@@ -154,8 +156,7 @@ final class FileViewerService
     }
 
     /**
-     * Overwrites an existing file. Creating, renaming and deleting is deliberately out of
-     * scope - the viewer edits what is there.
+     * Overwrites an existing file.
      *
      * @return array<string, mixed>
      */
@@ -212,6 +213,186 @@ final class FileViewerService
     public function createDirectory(string $parentPath, string $name): array
     {
         return $this->createEntry($parentPath, $name, directory: true);
+    }
+
+    /**
+     * Renames a file or directory in place. The new name is a single segment, so this can
+     * never move an entry to a different directory.
+     *
+     * @return array<string, mixed> the renamed entry, as listDirectory() would describe it
+     */
+    public function renameEntry(string $relativePath, string $newName): array
+    {
+        if (!$this->writable) {
+            throw new NotWritableException('The file viewer is configured read-only.');
+        }
+
+        $newName = $this->assertValidName($newName);
+        $located = $this->locate($relativePath);
+
+        if ($located['name'] === $newName) {
+            return $this->describe(new SplFileInfo($located['absolute']), $located['relative']);
+        }
+
+        if (!is_writable($located['parent'])) {
+            throw new NotWritableException(sprintf('"%s" is not writable.', $located['parentRelative']));
+        }
+
+        $targetRelative = '' === $located['parentRelative']
+            ? $newName
+            : $located['parentRelative'] . '/' . $newName;
+
+        // Renaming into an excluded name would make the entry disappear from the viewer.
+        if ($this->pathResolver->isExcluded($targetRelative)) {
+            throw new PathAccessDeniedException('This path is not available in the file viewer.');
+        }
+
+        $target = $located['parent'] . \DIRECTORY_SEPARATOR . $newName;
+
+        // A case-only rename hits an existing target on a case insensitive filesystem even
+        // though source and target are the same entry, so identity is checked rather than
+        // mere existence. is_link() covers a dangling symlink, which file_exists() misses.
+        if ((file_exists($target) || is_link($target)) && !$this->isSameEntry($located['absolute'], $target)) {
+            throw new AlreadyExistsException(sprintf('"%s" already exists.', $targetRelative));
+        }
+
+        if (!@rename($located['absolute'], $target)) {
+            throw new NotWritableException(sprintf('"%s" could not be renamed.', $located['relative']));
+        }
+
+        clearstatcache(true, $target);
+
+        return $this->describe(new SplFileInfo($target), $targetRelative);
+    }
+
+    /**
+     * Deletes a file, a symlink, or a directory with everything below it.
+     *
+     * @return array{path: string, isDirectory: bool}
+     */
+    public function deleteEntry(string $relativePath): array
+    {
+        if (!$this->writable) {
+            throw new NotWritableException('The file viewer is configured read-only.');
+        }
+
+        $located = $this->locate($relativePath);
+
+        // POSIX puts the permission to unlink an entry on the directory containing it, not
+        // on the entry itself.
+        if (!is_writable($located['parent'])) {
+            throw new NotWritableException(sprintf('"%s" is not writable.', $located['parentRelative']));
+        }
+
+        $absolute = $located['absolute'];
+        $isDirectory = is_dir($absolute) && !is_link($absolute);
+
+        $this->removeRecursively($absolute, $located['relative']);
+
+        clearstatcache(true, $absolute);
+
+        return ['path' => $located['relative'], 'isDirectory' => $isDirectory];
+    }
+
+    /**
+     * Locates an existing entry for an operation on the entry itself rather than on what it
+     * points at.
+     *
+     * The jail check runs on the parent directory and the final segment is appended
+     * afterwards, so a symlink is addressed as the symlink: resolve() would hand back its
+     * target, and renaming or deleting the target of a link is never what was asked for.
+     *
+     * @return array{parent: string, parentRelative: string, absolute: string, relative: string, name: string}
+     */
+    private function locate(string $relativePath): array
+    {
+        $relative = $this->pathResolver->normaliseRelative($relativePath);
+
+        // The empty path is the root; without this guard "" or "/" would delete the project.
+        if ('' === $relative) {
+            throw new InvalidPathException('The file viewer root itself cannot be changed.');
+        }
+
+        if ($this->pathResolver->isExcluded($relative)) {
+            throw new PathAccessDeniedException('This path is not available in the file viewer.');
+        }
+
+        $separator = strrpos($relative, '/');
+        $parentRelative = false === $separator ? '' : substr($relative, 0, $separator);
+        $name = false === $separator ? $relative : substr($relative, $separator + 1);
+
+        $parent = $this->pathResolver->resolve($parentRelative);
+        $absolute = $parent . \DIRECTORY_SEPARATOR . $name;
+
+        if (!file_exists($absolute) && !is_link($absolute)) {
+            throw new PathNotFoundException(sprintf('"%s" does not exist.', $relative));
+        }
+
+        return [
+            'parent' => $parent,
+            'parentRelative' => $this->pathResolver->toRelative($parent),
+            'absolute' => $absolute,
+            'relative' => $relative,
+            'name' => $name,
+        ];
+    }
+
+    /**
+     * Removes an entry, depth first for a directory. Symlinks are unlinked, never followed -
+     * a link into another part of the project must not take that part down with it.
+     */
+    private function removeRecursively(string $absolutePath, string $relativePath): void
+    {
+        if (is_link($absolutePath) || !is_dir($absolutePath)) {
+            if (!@unlink($absolutePath)) {
+                throw new NotWritableException(sprintf('"%s" could not be deleted.', $relativePath));
+            }
+
+            return;
+        }
+
+        // RecursiveDirectoryIterator does not descend into symlinked directories unless
+        // FOLLOW_SYMLINKS is asked for, so CHILD_FIRST yields link entries themselves.
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($absolutePath, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST,
+        );
+
+        foreach ($iterator as $child) {
+            /** @var SplFileInfo $child */
+            $childPath = $child->getPathname();
+
+            $removed = $child->isDir() && !$child->isLink()
+                ? @rmdir($childPath)
+                : @unlink($childPath);
+
+            if (false === $removed) {
+                throw new NotWritableException(sprintf(
+                    '"%s" could not be deleted.',
+                    $this->pathResolver->toRelative($childPath),
+                ));
+            }
+        }
+
+        if (!@rmdir($absolutePath)) {
+            throw new NotWritableException(sprintf('"%s" could not be deleted.', $relativePath));
+        }
+    }
+
+    /**
+     * Compares device and inode rather than paths, so two spellings of the same entry on a
+     * case insensitive filesystem are recognised as one.
+     */
+    private function isSameEntry(string $first, string $second): bool
+    {
+        $a = @lstat($first);
+        $b = @lstat($second);
+
+        if (false === $a || false === $b) {
+            return false;
+        }
+
+        return $a['dev'] === $b['dev'] && $a['ino'] === $b['ino'];
     }
 
     /**

@@ -44,6 +44,11 @@ interface OpenFile {
   dirty: boolean
 }
 
+/** True when `path` is the entry itself, or sits inside it when the entry is a directory. */
+function isAtOrUnder (path: string, entryPath: string, isDirectory: boolean): boolean {
+  return path === entryPath || (isDirectory && path.startsWith(`${entryPath}/`))
+}
+
 export const FileViewerWidget = (): React.JSX.Element => {
   const [openFiles, setOpenFiles] = useState<OpenFile[]>([])
   const [activePath, setActivePath] = useState<string | null>(null)
@@ -82,6 +87,57 @@ export const FileViewerWidget = (): React.JSX.Element => {
   }, [])
 
   /**
+   * Closes the tabs of an entry the tree just deleted - including everything below it when a
+   * whole folder went away, since those files no longer exist either.
+   */
+  const handleEntryRemoved = useCallback((removedPath: string, isDirectory: boolean): void => {
+    setOpenFiles((current) => {
+      const remaining = current.filter((file) => !isAtOrUnder(file.path, removedPath, isDirectory))
+
+      if (remaining.length === current.length) return current
+
+      setActivePath((active) => {
+        if (active !== null && !isAtOrUnder(active, removedPath, isDirectory)) return active
+
+        return remaining.length > 0 ? remaining[remaining.length - 1].path : null
+      })
+
+      return remaining
+    })
+  }, [])
+
+  /**
+   * Moves open tabs along with an entry the tree just renamed, rather than leaving them
+   * pointing at a path that no longer resolves. Renaming a folder moves everything open
+   * beneath it too. The pane refetches under the new path, so unsaved changes in a file that
+   * is renamed while dirty are lost - renaming what you are in the middle of editing is an
+   * odd thing to do, and guessing which of the two states to keep would be worse.
+   */
+  const handleEntryRenamed = useCallback((fromPath: string, entry: FileEntry): void => {
+    const toPath = entry.path
+
+    const moved = (path: string): string => {
+      if (path === fromPath) return toPath
+
+      return entry.isDirectory && path.startsWith(`${fromPath}/`)
+        ? `${toPath}${path.slice(fromPath.length)}`
+        : path
+    }
+
+    setOpenFiles((current) => current.map((file) => {
+      const path = moved(file.path)
+
+      if (path === file.path) return file
+
+      // Only the renamed entry itself gets a new label; a file inside a renamed folder keeps
+      // its own name and merely moves.
+      return { ...file, path, name: path === toPath ? entry.name : file.name }
+    }))
+
+    setActivePath((active) => (active === null ? active : moved(active)))
+  }, [])
+
+  /**
    * Kept here rather than in the pane so the tab label can show the unsaved marker while
    * another tab is in front.
    */
@@ -109,7 +165,12 @@ export const FileViewerWidget = (): React.JSX.Element => {
         maxSize: hasOpenFile ? 320 : 460,
         size: leftSize,
         children: (
-          <FileTreePanel onFileOpen={ handleFileOpen } selectedPath={ activePath } />
+          <FileTreePanel
+            onEntryRemoved={ handleEntryRemoved }
+            onEntryRenamed={ handleEntryRenamed }
+            onFileOpen={ handleFileOpen }
+            selectedPath={ activePath }
+          />
         )
       } }
       resizeAble

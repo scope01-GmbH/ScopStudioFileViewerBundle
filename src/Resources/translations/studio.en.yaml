@@ -24,6 +24,24 @@ scop-file-viewer.tree.new.ok: Create
 scop-file-viewer.tree.created: '{{path}} created'
 scop-file-viewer.tree.create-error: '"{{name}}" could not be created.'
 
+# Renaming and deleting
+scop-file-viewer.tree.rename: Rename
+scop-file-viewer.tree.rename.title: 'Rename {{name}}'
+scop-file-viewer.tree.rename.label: New name
+scop-file-viewer.tree.rename.required: A name is required.
+scop-file-viewer.tree.rename.ok: Rename
+scop-file-viewer.tree.renamed: '{{from}} renamed to {{to}}'
+scop-file-viewer.tree.rename-error: '"{{path}}" could not be renamed.'
+scop-file-viewer.tree.delete: Delete
+scop-file-viewer.tree.delete.file-title: 'Delete {{name}}?'
+scop-file-viewer.tree.delete.folder-title: 'Delete the folder {{name}}?'
+scop-file-viewer.tree.delete.file-content: '{{path}} will be deleted from the server. This cannot be undone.'
+scop-file-viewer.tree.delete.folder-content: '{{path}} and everything inside it will be deleted from the server. This cannot be undone.'
+scop-file-viewer.tree.delete.ok: Delete
+scop-file-viewer.tree.delete.cancel: Cancel
+scop-file-viewer.tree.deleted: '{{path}} deleted'
+scop-file-viewer.tree.delete-error: '"{{path}}" could not be deleted.'
+
 # Editor
 scop-file-viewer.editor.empty-state: Select a file in the tree to open it.
 scop-file-viewer.editor.nothing-to-show: Nothing to show.
