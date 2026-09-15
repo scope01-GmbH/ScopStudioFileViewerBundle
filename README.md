@@ -32,12 +32,43 @@ for Studio: a file tree on the left, a tabbed editor on the right.
 ## Requirements
 
 - PHP 8.4+
-- Pimcore 2026.2+ with `pimcore/studio-ui-bundle`
+- Pimcore **2026.2** with `pimcore/studio-ui-bundle` — one platform line per release, see
+  *Versioning* below
+
+## Versioning
+
+Releases are numbered after the Pimcore platform they target, the way the Pimcore packages
+themselves are: `2026.2.0`, `2026.2.1`, and so on.
+
+The third segment is this bundle's own release counter and has nothing to do with Pimcore's
+patch level — bundle `2026.2.3` does **not** mean "needs Pimcore 2026.2.3", it means the
+fourth release for the 2026.2 platform.
+
+Require it pinned to one line:
+
+```json
+"scope01/studio-file-viewer-bundle": "~2026.2.0"
+```
+
+`~2026.2.0` is `>=2026.2.0 <2026.3.0`. Do not use `^2026.2` — with a calendar major that
+means `<2027.0.0`, which would happily install a build meant for a different platform line.
+The frontend ships as a prebuilt module federation bundle compiled against a pinned
+`@pimcore/studio-ui-bundle`, so a release really does belong to exactly one line.
+
+Each platform line has its own branch (`2026.2`, …) for fixes; `main` tracks the newest one.
+
+Releases up to and including `v1.4.0` used semantic versioning. A constraint of `^1.0` will
+not see the calendar releases at all — composer keeps such a project on `1.4.0` silently, so
+the constraint has to be changed by hand once.
+
+Because the version now tracks the platform rather than this bundle's own surface, a change
+to the configuration schema (`scop_studio_file_viewer.*`) or to the API routes is called out
+in the release notes instead of being visible in the number.
 
 ## Installation
 
 ```bash
-composer require scope01/studio-file-viewer-bundle
+composer require scope01/studio-file-viewer-bundle:~2026.2.0
 ```
 
 Register the bundle in `config/bundles.php`:
