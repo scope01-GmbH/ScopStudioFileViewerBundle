@@ -62,3 +62,11 @@ scop-file-viewer.editor.too-large.title: File too large to open
 scop-file-viewer.editor.too-large.description: '{{path}} is {{size}}, above the {{limit}} limit for the editor. It was not loaded. You can download it, or look at the end of the file read-only, which is usually what you want for a log.'
 scop-file-viewer.editor.too-large.show-tail: Show last {{size}}
 scop-file-viewer.editor.tail-notice: Showing only the last {{size}} of this file. This view is read-only.
+
+# Perspective editor
+#
+# Rendered by Studio core, not by this bundle: the perspective editor builds the key as
+# perspective-editor.form.main-nav-permission.<group>.<key> from the permission that
+# StudioContextPermissionsSubscriber registers. Without it the checkbox is labelled with the
+# raw key.
+perspective-editor.form.main-nav-permission.system.scopFileViewer: File Viewer

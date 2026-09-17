@@ -62,3 +62,11 @@ scop-file-viewer.editor.too-large.title: Datei zu groß zum Öffnen
 scop-file-viewer.editor.too-large.description: '{{path}} ist {{size}} groß und liegt damit über dem Limit von {{limit}} für den Editor. Die Datei wurde nicht geladen. Sie können sie herunterladen oder das Ende der Datei schreibgeschützt ansehen - was bei einem Log meist das Gewünschte ist.'
 scop-file-viewer.editor.too-large.show-tail: Letzte {{size}} anzeigen
 scop-file-viewer.editor.tail-notice: Es werden nur die letzten {{size}} dieser Datei angezeigt. Diese Ansicht ist schreibgeschützt.
+
+# Perspektiven-Editor
+#
+# Wird von Studio selbst gerendert, nicht von diesem Bundle: der Perspektiven-Editor bildet
+# den Schlüssel als perspective-editor.form.main-nav-permission.<Gruppe>.<Schlüssel> aus der
+# Berechtigung, die StudioContextPermissionsSubscriber registriert. Ohne ihn trägt die
+# Checkbox den rohen Schlüssel als Beschriftung.
+perspective-editor.form.main-nav-permission.system.scopFileViewer: Datei-Viewer

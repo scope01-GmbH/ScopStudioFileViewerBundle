@@ -16,6 +16,8 @@ declare(strict_types=1);
 namespace Scop\StudioFileViewerBundle\Tests;
 
 use PHPUnit\Framework\TestCase;
+use Pimcore\Bundle\StudioBackendBundle\Perspective\Util\Constant\ContextPermissionGroups;
+use Scop\StudioFileViewerBundle\EventSubscriber\StudioContextPermissionsSubscriber;
 use Symfony\Component\Yaml\Yaml;
 
 /**
@@ -28,6 +30,12 @@ final class TranslationsTest extends TestCase
     private const BASE_LOCALE = 'en';
 
     private const LOCALES = ['en', 'de'];
+
+    /**
+     * Everything this bundle renders itself. Keys outside of it belong to a Studio core
+     * screen that this bundle only contributes an entry to.
+     */
+    private const OWN_KEY_PREFIX = 'scop-file-viewer.';
 
     public function testEveryLocaleFileExistsAndIsFlat(): void
     {
@@ -85,6 +93,10 @@ final class TranslationsTest extends TestCase
     /**
      * Every key the UI asks for has to exist, and every key shipped has to be used - an
      * orphan is usually a rename that only got applied on one side.
+     *
+     * Only this bundle's own namespace is compared. A key outside of it is rendered by a
+     * Studio core screen from a key that core assembles itself, so it never appears in these
+     * sources; {@see testPerspectivePermissionIsLabelledInEveryLocale} covers that one.
      */
     public function testCatalogueMatchesTheKeysUsedInTheFrontend(): void
     {
@@ -92,10 +104,58 @@ final class TranslationsTest extends TestCase
 
         self::assertNotEmpty($used, 'No translation keys were found in the frontend sources.');
 
-        $available = array_keys($this->loadCatalogue(self::BASE_LOCALE));
+        $available = array_values(array_filter(
+            array_keys($this->loadCatalogue(self::BASE_LOCALE)),
+            static fn (string $key): bool => str_starts_with($key, self::OWN_KEY_PREFIX),
+        ));
 
         self::assertSame([], array_values(array_diff($used, $available)), 'Keys used in the UI but not translated.');
         self::assertSame([], array_values(array_diff($available, $used)), 'Translated keys that the UI never uses.');
+    }
+
+    /**
+     * The navigation entry is switched on and off per perspective, and the perspective editor
+     * labels that checkbox with a key it assembles out of the permission itself. Three places
+     * have to agree for a label to appear at all: the permission the frontend puts on the nav
+     * item, the one the backend registers, and the translation. When they drift the checkbox
+     * shows the raw key - or vanishes, because the editor drops a permission the backend does
+     * not know about.
+     */
+    public function testPerspectivePermissionIsLabelledInEveryLocale(): void
+    {
+        $module = (string) file_get_contents(
+            \dirname(__DIR__) . '/assets/src/modules/file-viewer-module.tsx',
+        );
+
+        self::assertSame(
+            1,
+            preg_match("/const PERSPECTIVE_PERMISSION = '(\w+)\.(\w+)'/", $module, $matches),
+            'The frontend module does not declare a PERSPECTIVE_PERMISSION of the form "group.key".',
+        );
+
+        [, $group, $key] = $matches;
+
+        self::assertSame(
+            StudioContextPermissionsSubscriber::PERMISSION_KEY,
+            $key,
+            'The permission on the navigation item is not the one the backend registers.',
+        );
+
+        self::assertSame(
+            ContextPermissionGroups::SYSTEM->value,
+            $group,
+            'The navigation item and the backend registration disagree about the permission group.',
+        );
+
+        $translationKey = sprintf('perspective-editor.form.main-nav-permission.%s.%s', $group, $key);
+
+        foreach (self::LOCALES as $locale) {
+            self::assertArrayHasKey(
+                $translationKey,
+                $this->loadCatalogue($locale),
+                sprintf('The perspective editor label is missing from "%s".', $locale),
+            );
+        }
     }
 
     /**

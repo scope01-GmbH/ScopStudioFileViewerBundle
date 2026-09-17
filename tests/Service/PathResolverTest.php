@@ -101,25 +101,62 @@ final class PathResolverTest extends FilesystemTestCase
 
     /**
      * A symlink is the interesting case: the path itself never leaves the root, only the
-     * thing it points at does. This is why the containment check runs on the realpath().
+     * thing it points at does. Every deployment layout is built out of exactly that - a
+     * shared var/, config/ or storage/ directory linked into each release - so following it
+     * is the default and the entry is addressed under the name it has in the tree.
      */
-    public function testRejectsSymlinkPointingOutsideRoot(): void
+    public function testFollowsSymlinkPointingOutsideRoot(): void
     {
-        $outside = sys_get_temp_dir() . '/scop-file-viewer-outside-' . bin2hex(random_bytes(4));
-        file_put_contents($outside, 'secret');
+        $shared = $this->makeOutsideDirectory();
+        file_put_contents($shared . '/parameters.yaml', 'shared');
 
-        try {
-            if (!@symlink($outside, $this->root . '/escape')) {
-                self::markTestSkipped('Symlinks are not supported in this environment.');
-            }
-
-            $resolver = $this->createResolver();
-
-            $this->expectException(PathAccessDeniedException::class);
-            $resolver->resolve('escape');
-        } finally {
-            @unlink($outside);
+        if (!@symlink($shared . '/parameters.yaml', $this->root . '/parameters.yaml')) {
+            self::markTestSkipped('Symlinks are not supported in this environment.');
         }
+
+        $resolver = $this->createResolver();
+        $resolved = $resolver->resolve('parameters.yaml');
+
+        self::assertSame($this->root . '/parameters.yaml', $resolved);
+        // Returning the target instead would put toRelative() - and with it every path the UI
+        // shows and sends back - outside the root.
+        self::assertSame('parameters.yaml', $resolver->toRelative($resolved));
+    }
+
+    public function testRejectsSymlinkPointingOutsideRootWhenSymlinksAreNotFollowed(): void
+    {
+        $outside = $this->makeOutsideDirectory();
+        file_put_contents($outside . '/secret.txt', 'secret');
+
+        if (!@symlink($outside . '/secret.txt', $this->root . '/escape')) {
+            self::markTestSkipped('Symlinks are not supported in this environment.');
+        }
+
+        $this->expectException(PathAccessDeniedException::class);
+        $this->createResolver(followSymlinks: false)->resolve('escape');
+    }
+
+    /**
+     * Following symlinks does not open a way out: ".." is resolved against the path as it is
+     * spelled, so "link/.." is the root rather than the parent of the link's target.
+     */
+    public function testTraversalThroughSymlinkCannotClimbOutOfTheRoot(): void
+    {
+        $shared = $this->makeOutsideDirectory();
+        file_put_contents($shared . '/parameters.yaml', 'shared');
+        $this->makeDirectory('config');
+
+        if (!@symlink($shared, $this->root . '/shared')) {
+            self::markTestSkipped('Symlinks are not supported in this environment.');
+        }
+
+        $resolver = $this->createResolver();
+
+        self::assertSame($this->root . '/shared/parameters.yaml', $resolver->resolve('shared/parameters.yaml'));
+        self::assertSame($this->root . '/config', $resolver->resolve('shared/../config'));
+
+        $this->expectException(InvalidPathException::class);
+        $resolver->resolve('shared/../../etc/passwd');
     }
 
     public function testAllowsSymlinkStayingInsideRoot(): void
@@ -132,7 +169,7 @@ final class PathResolverTest extends FilesystemTestCase
 
         $resolver = $this->createResolver();
 
-        self::assertSame($this->root . '/config/real.yaml', $resolver->resolve('link.yaml'));
+        self::assertSame($this->root . '/link.yaml', $resolver->resolve('link.yaml'));
     }
 
     public function testRejectsExcludedPathAndItsChildren(): void
@@ -193,8 +230,8 @@ final class PathResolverTest extends FilesystemTestCase
     /**
      * @param list<string> $excluded
      */
-    private function createResolver(array $excluded = []): PathResolver
+    private function createResolver(array $excluded = [], bool $followSymlinks = true): PathResolver
     {
-        return new PathResolver($this->root, $excluded);
+        return new PathResolver($this->root, $excluded, $followSymlinks);
     }
 }

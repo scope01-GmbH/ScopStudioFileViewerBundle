@@ -26,8 +26,13 @@ for Studio: a file tree on the left, a tabbed editor on the right.
 - **Large files are never loaded.** Anything above `max_editable_size` is refused with a
   warning; the last `tail_bytes` can be shown read-only instead, which is what you usually
   want for a log file. Binary files are detected and not opened at all.
+- **Symlinks are followed.** A deployed project is mostly links - a shared `var/`, `config/`
+  or `storage/` pointed into every release - and those are exactly the directories worth
+  looking at on a server. They open like any other folder, and a linked file is written
+  through instead of being replaced by a copy. See `follow_symlinks` under *Configuration*.
 - **Admin only.** Every route requires a Pimcore admin user, independent of the project's
-  `access_control` rules.
+  `access_control` rules. The navigation entry can additionally be switched off per
+  perspective under **System → File Viewer** in the perspective editor.
 
 ## Requirements
 
@@ -102,6 +107,11 @@ scop_studio_file_viewer:
     # Set to false for a read-only viewer, e.g. on production.
     writable: true
 
+    # Whether a symlink inside root_path may be followed to a target outside of it.
+    # Deployments link shared directories into every release, so this is on by default.
+    # With it off, the viewer is confined to what physically lives under root_path.
+    follow_symlinks: true
+
     # Files larger than this (bytes) are not loaded into the editor.
     max_editable_size: 2097152   # 2 MB
 
@@ -155,14 +165,36 @@ src/Resources/translations/studio.de.yaml
 ```
 
 Symfony picks these up automatically from the bundle path, and Studio merges them into its
-own `studio` catalogue — there is nothing to register. All keys are namespaced under
-`scop-file-viewer.` and use flat dot notation, which is the only form the Studio translator
-resolves.
+own `studio` catalogue — there is nothing to register. All keys use flat dot notation, which
+is the only form the Studio translator resolves, and all of them are namespaced under
+`scop-file-viewer.` except one: the label of the perspective permission below, whose key is
+assembled by Studio core rather than by this bundle.
 
 To add a locale, copy `studio.en.yaml` to `studio.<locale>.yaml` and translate the values.
 `TranslationsTest` fails the build if a locale is missing a key, carries one the base
 catalogue does not have, or changes a `{{placeholder}}`, and if the UI uses a key that is not
 translated (or ships one it never uses).
+
+## Permissions
+
+Who may read and write files is decided by the backend alone: every route requires
+`User::isAdmin()`. The navigation entry carries a matching user permission, so for anyone but
+an admin it is not rendered in the first place rather than leading to a 403.
+
+On top of that the entry is a **perspective permission**, which is what makes it possible to
+keep the file viewer out of a perspective without touching a user's rights. It shows up in
+the perspective editor under **System → File Viewer**:
+
+| Where                | Value                                                        |
+|----------------------|--------------------------------------------------------------|
+| Nav item (frontend)  | `perspectivePermission: 'system.scopFileViewer'`              |
+| Registration (PHP)   | `StudioContextPermissionsSubscriber::PERMISSION_KEY`          |
+| Label (translations) | `perspective-editor.form.main-nav-permission.system.scopFileViewer` |
+
+All three have to agree. Studio drops a permission the backend never registered — with a
+console error, and the checkbox simply does not appear — and labels the rest from that
+translation key, so a missing translation leaves the raw key on screen. `TranslationsTest`
+asserts the three stay in sync.
 
 ## Syntax highlighting
 
@@ -189,12 +221,17 @@ configuration and anything else the PHP process can touch.
 
 - Every route requires `User::isAdmin()`, checked in the bundle itself rather than delegated
   to firewall configuration.
-- Every client-supplied path is resolved through a path jail: the path is normalised, then
-  `realpath()`-ed, then verified to sit inside the configured root. Because the check runs on
-  the resolved path, a symlink pointing outside the root is rejected too.
+- Every client-supplied path is resolved through a path jail. The jail is **logical**: `.`
+  and `..` are resolved before the path touches the filesystem and a path that walks above
+  the root is refused, so no spelling of a path can leave the root — `link/..` is the root,
+  not the parent of the link's target. A symlink the project itself placed in the tree *is*
+  followed, because a deployment is built out of those. Set `follow_symlinks: false` to make
+  the jail physical instead: the resolved `realpath()` then has to sit inside the root as
+  well, and a link pointing out of it is refused.
 - Excluded paths are enforced on both the requested path and the resolved path.
 - Writes are size-capped, refused for binary files, and performed atomically through a
-  temporary file in the same directory that inherits the original's permissions.
+  temporary file in the same directory that inherits the original's permissions. A symlinked
+  file is written through to its target rather than replaced, so a shared file stays shared.
 - On creation the name must be a single path segment: separators, `.`, `..`, control
   characters and over-long names are rejected, so a caller cannot escape the parent
   directory it addressed. Existing entries are never overwritten, and a name already taken

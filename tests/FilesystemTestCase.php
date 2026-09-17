@@ -28,6 +28,11 @@ abstract class FilesystemTestCase extends TestCase
 {
     protected string $root;
 
+    /**
+     * @var list<string> directories created next to the root, torn down with it
+     */
+    private array $outsideDirectories = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -50,7 +55,33 @@ abstract class FilesystemTestCase extends TestCase
     {
         $this->removeRecursively($this->root);
 
+        foreach ($this->outsideDirectories as $directory) {
+            $this->removeRecursively($directory);
+        }
+
+        $this->outsideDirectories = [];
+
         parent::tearDown();
+    }
+
+    /**
+     * A directory beside the root, for the symlink cases: a deployment's shared var/ or
+     * config/ lives next to the release, not inside it.
+     */
+    protected function makeOutsideDirectory(): string
+    {
+        $path = sys_get_temp_dir() . '/scop-file-viewer-outside-' . bin2hex(random_bytes(6));
+
+        if (!mkdir($path, 0777, true) && !is_dir($path)) {
+            self::fail(sprintf('Could not create "%s".', $path));
+        }
+
+        $real = realpath($path);
+        self::assertIsString($real);
+
+        $this->outsideDirectories[] = $real;
+
+        return $real;
     }
 
     protected function writeFile(string $relativePath, string $contents = ''): string

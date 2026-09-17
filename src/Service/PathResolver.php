@@ -23,9 +23,13 @@ use Scop\StudioFileViewerBundle\Exception\PathNotFoundException;
  * Translates client supplied, root-relative paths into absolute paths and guarantees
  * that they stay inside the configured root.
  *
- * Every path that reaches the filesystem goes through resolve(). The check is done on
- * the realpath(), so a symlink pointing out of the root is rejected as well - which is
- * why resolve() only ever accepts paths that already exist.
+ * Every path that reaches the filesystem goes through resolve(), which only ever accepts
+ * paths that already exist. The jail is logical rather than physical: a path may not
+ * *spell* its way out of the root, but it may follow a symlink the project itself placed
+ * inside the tree. Deployments are built out of exactly those - a shared var/, config/ or
+ * storage/ directory linked into each release - so refusing them would hide the part of
+ * the project an administrator most often needs to look at. A project that wants the jail
+ * to be physical sets follow_symlinks to false and gets the stricter realpath() check.
  */
 final class PathResolver
 {
@@ -39,8 +43,11 @@ final class PathResolver
     /**
      * @param list<string> $excludedPaths
      */
-    public function __construct(string $rootPath, array $excludedPaths = [])
-    {
+    public function __construct(
+        string $rootPath,
+        array $excludedPaths = [],
+        private readonly bool $followSymlinks = true,
+    ) {
         $root = realpath($rootPath);
 
         if (false === $root) {
@@ -69,8 +76,12 @@ final class PathResolver
     /**
      * Resolves a root-relative path to an existing absolute path inside the root.
      *
-     * @throws InvalidPathException     the path is syntactically unusable
-     * @throws PathNotFoundException    nothing exists at that path
+     * The returned path is the one that was asked for, not its realpath(): a symlink is
+     * addressed under the name it has in the tree, so toRelative() keeps round-tripping and
+     * the UI keeps showing the path the user clicked.
+     *
+     * @throws InvalidPathException      the path is syntactically unusable
+     * @throws PathNotFoundException     nothing exists at that path
      * @throws PathAccessDeniedException the path escapes the root or is excluded
      */
     public function resolve(string $relativePath): string
@@ -91,17 +102,25 @@ final class PathResolver
             throw new PathNotFoundException(sprintf('"%s" does not exist.', $relative));
         }
 
-        if (!$this->isInsideRoot($real)) {
-            // Reached through a symlink or a traversal sequence that survived normalisation.
+        if ($this->isInsideRoot($real)) {
+            // A symlink may resolve to a location that is inside the root but excluded.
+            if ($this->isExcluded($this->toRelative($real))) {
+                throw new PathAccessDeniedException('This path is not available in the file viewer.');
+            }
+
+            return $candidate;
+        }
+
+        // normaliseRelative() has already resolved every "." and ".." segment and refuses a
+        // path that walks above the root, so the spelled path is inside the root by
+        // construction. The only way its realpath() can be somewhere else is a symlink that
+        // lives in the tree - which is the deployment layout this bundle has to be able to
+        // browse, not an escape attempt.
+        if (!$this->followSymlinks) {
             throw new PathAccessDeniedException('This path is outside of the file viewer root.');
         }
 
-        // A symlink may resolve to a location that is inside the root but excluded.
-        if ($this->isExcluded($this->toRelative($real))) {
-            throw new PathAccessDeniedException('This path is not available in the file viewer.');
-        }
-
-        return $real;
+        return $candidate;
     }
 
     /**

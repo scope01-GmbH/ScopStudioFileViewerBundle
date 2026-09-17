@@ -594,6 +594,78 @@ final class FileViewerServiceTest extends FilesystemTestCase
         $this->createService()->resolveDownloadPath('src');
     }
 
+    /**
+     * The layout every deployed project has: the release directory is the root, and the
+     * directories that have to survive a deployment are links into a shared location next to
+     * it. Browsing those is the main reason to open this bundle on a server at all.
+     */
+    public function testBrowsesADirectoryLinkedOutsideTheRoot(): void
+    {
+        $shared = $this->makeOutsideDirectory();
+        file_put_contents($shared . '/prod.log', "started\n");
+
+        if (!@symlink($shared, $this->root . '/var')) {
+            self::markTestSkipped('Symlinks are not supported in this environment.');
+        }
+
+        $service = $this->createService();
+
+        $listing = $service->listDirectory('var');
+
+        self::assertSame('var', $listing['path']);
+        self::assertSame(['prod.log'], array_column($listing['entries'], 'name'));
+        self::assertSame(['var/prod.log'], array_column($listing['entries'], 'path'));
+
+        $file = $service->readFile('var/prod.log');
+
+        self::assertSame(FileViewerService::STATUS_OK, $file['status']);
+        self::assertSame("started\n", $file['content']);
+        self::assertSame('var/prod.log', $file['path']);
+    }
+
+    /**
+     * A linked file is written through. Replacing the link with a regular file would look
+     * like a successful save and be undone by the next deployment.
+     */
+    public function testWritingALinkedFileKeepsTheLinkAndUpdatesItsTarget(): void
+    {
+        $shared = $this->makeOutsideDirectory();
+        $target = $shared . '/parameters.yaml';
+        file_put_contents($target, "old\n");
+
+        if (!@symlink($target, $this->root . '/parameters.yaml')) {
+            self::markTestSkipped('Symlinks are not supported in this environment.');
+        }
+
+        $result = $this->createService()->writeFile('parameters.yaml', "new\n");
+
+        self::assertSame("new\n", $result['content']);
+        self::assertTrue(is_link($this->root . '/parameters.yaml'), 'The symlink was replaced by a regular file.');
+        self::assertSame("new\n", file_get_contents($target));
+    }
+
+    /**
+     * A deploy tree always has a link or two whose target is not there (yet). Every stat on
+     * it returns false, so it has to be described without asking for a size or an mtime -
+     * otherwise listing the directory it sits in fills the log with warnings.
+     */
+    public function testDanglingSymlinkIsListedAsAnUnreadableEntry(): void
+    {
+        if (!@symlink($this->root . '/never-created', $this->root . '/broken.txt')) {
+            self::markTestSkipped('Symlinks are not supported in this environment.');
+        }
+
+        $entries = $this->createService()->listDirectory('')['entries'];
+
+        self::assertCount(1, $entries);
+        self::assertSame('broken.txt', $entries[0]['name']);
+        self::assertFalse($entries[0]['isDirectory']);
+        self::assertNull($entries[0]['size']);
+        self::assertSame(0, $entries[0]['modified']);
+        self::assertFalse($entries[0]['readable']);
+        self::assertFalse($entries[0]['writable']);
+    }
+
     public function testConfigReportsEffectiveLimits(): void
     {
         $config = $this->createService()->getConfig();

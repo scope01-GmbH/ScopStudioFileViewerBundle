@@ -18,6 +18,23 @@ const WIDGET_ID = 'scop-file-viewer'
 
 const TITLE_KEY = 'scop-file-viewer.title'
 
+/**
+ * Keep identical to `StudioContextPermissionsSubscriber::PERMISSION_KEY` and to
+ * `perspective-editor.form.main-nav-permission.system.scopFileViewer` in the translation
+ * catalogues. The perspective editor collects the permissions it finds on the registered nav
+ * items, drops the ones the backend does not know about, and labels the rest from that
+ * translation key - so all three have to agree or the entry cannot be configured at all.
+ */
+const PERSPECTIVE_PERMISSION = 'system.scopFileViewer'
+
+/**
+ * Every route checks isAdmin() server side, so for anyone else this entry only ever leads to
+ * a 403. Studio's user permission check lets an admin through whatever the key is, and a
+ * non-admin can never hold a key that is not in Pimcore's permission table - which makes
+ * this the audience the backend already enforces.
+ */
+const USER_PERMISSION = 'scop_file_viewer'
+
 export const ScopFileViewerModule: AbstractModule = {
   onInit: (): void => {
     const widgetRegistry = container.get<WidgetRegistry>(serviceIds.widgetManager)
@@ -34,6 +51,8 @@ export const ScopFileViewerModule: AbstractModule = {
       // the user actually sees, so both are translation keys rather than literals.
       path: 'System/File Viewer',
       label: TITLE_KEY,
+      permission: USER_PERMISSION,
+      perspectivePermission: PERSPECTIVE_PERMISSION,
       widgetConfig: {
         name: 'File Viewer',
         id: WIDGET_ID,

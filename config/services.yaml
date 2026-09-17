@@ -8,6 +8,7 @@ services:
         arguments:
             $rootPath: '%scop_studio_file_viewer.root_path%'
             $excludedPaths: '%scop_studio_file_viewer.excluded_paths%'
+            $followSymlinks: '%scop_studio_file_viewer.follow_symlinks%'
 
     Scop\StudioFileViewerBundle\Service\FileViewerService:
         arguments:
@@ -17,6 +18,16 @@ services:
             $tailBytes: '%scop_studio_file_viewer.tail_bytes%'
 
     Scop\StudioFileViewerBundle\Security\AdminAccessGuard: ~
+
+    # Declares the perspective permission the main navigation entry is gated on. Registered
+    # explicitly rather than through a resource glob, because this is the only service in
+    # src/EventSubscriber and the tag is what makes the entry show up in the perspective
+    # editor at all.
+    Scop\StudioFileViewerBundle\EventSubscriber\StudioContextPermissionsSubscriber:
+        arguments:
+            $permissionsService: '@Pimcore\Bundle\StudioBackendBundle\Perspective\Service\ContextPermissionsServiceInterface'
+        tags:
+            - { name: kernel.event_subscriber }
 
     Scop\StudioFileViewerBundle\Controller\:
         resource: '../src/Controller'

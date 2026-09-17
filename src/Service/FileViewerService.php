@@ -521,16 +521,23 @@ final class FileViewerService
      */
     private function describe(SplFileInfo $fileInfo, string $relative): array
     {
-        $isDirectory = $fileInfo->isDir();
+        $absolute = $fileInfo->getPathname();
+
+        // An entry is described by what it points at, which for a dangling symlink is
+        // nothing: SplFileInfo::getSize() and getMTime() warn and return false in that case,
+        // and a deploy tree always has a few links whose target is not there yet. The link is
+        // still listed - hiding it would be worse - but reported as empty and unreadable.
+        $exists = file_exists($absolute);
+        $isDirectory = $exists && $fileInfo->isDir();
 
         return [
             'name' => $fileInfo->getFilename(),
             'path' => $relative,
             'isDirectory' => $isDirectory,
-            'size' => $isDirectory ? null : $fileInfo->getSize(),
-            'modified' => $fileInfo->getMTime(),
-            'readable' => $fileInfo->isReadable(),
-            'writable' => $this->writable && $fileInfo->isWritable(),
+            'size' => $isDirectory || !$exists ? null : (int) $fileInfo->getSize(),
+            'modified' => $exists ? $fileInfo->getMTime() : 0,
+            'readable' => $exists && $fileInfo->isReadable(),
+            'writable' => $this->writable && $exists && $fileInfo->isWritable(),
         ];
     }
 
@@ -589,9 +596,18 @@ final class FileViewerService
      * Writes through a temporary file in the same directory so that a failed or partial write
      * cannot leave a half-written config or source file behind. The temp file inherits the
      * original's permissions, which rename() would otherwise replace with the default mask.
+     *
+     * A symlink is written through rather than replaced: rename() onto a link swaps out the
+     * link itself, which would silently turn a shared .env into a per-release copy that the
+     * next deployment reverts. The temp file is created next to the link's target so the
+     * rename stays on one filesystem.
      */
     private function writeAtomically(string $absolutePath, string $content): void
     {
+        if (is_link($absolutePath)) {
+            $absolutePath = realpath($absolutePath) ?: $absolutePath;
+        }
+
         $directory = \dirname($absolutePath);
         $temporary = tempnam($directory, '.scop-file-viewer-');
 
