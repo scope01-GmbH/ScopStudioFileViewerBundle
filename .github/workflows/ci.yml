@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         # Matches the `php` constraint in composer.json, which in turn is bounded by
-        # pimcore/pimcore ^2026.2 (~8.4 || ~8.5).
+        # pimcore/pimcore ~2026.3.0 (~8.4 || ~8.5).
         php: ['8.4', '8.5']
     steps:
       - uses: actions/checkout@v4
